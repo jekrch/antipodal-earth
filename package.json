@@ -1,16 +1,22 @@
 {
-  "name": "antipodal-globe",
+  "name": "antipodal-earth",
   "private": true,
   "version": "0.0.0",
+  "homepage": "https://jekrch.github.io/antipodal-earth",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
     "build": "bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "predeploy": "bunx --bun vite build",
+  "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "-": "^0.0.1",
+    "D": "^1.0.0",
+    "gh-pages": "^6.3.0",
     "lucide-react": "^0.511.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

@@ -121,15 +121,8 @@ const GlobeViewer: React.FC = () => {
     const previousWasKansas = previousPovRef.current?.lat === KANSAS_LOCATION.lat && previousPovRef.current?.lng === KANSAS_LOCATION.lng;
 
     if (!isDirectlyKansas && previousWasKansas && ipLookupAttempted.current) {
-      // This condition aims to identify the first move from Kansas to IP location
       transitionDuration = 1000;
       console.log("EFFECT 2: Animating to IP location (heuristic).");
-    } else if (isDirectlyKansas) {
-      // If we're setting back to Kansas (e.g. IP fail after trying or reset), allow animation
-      // But initial Kansas animation is handled by Effect 1.
-      // This might need refinement if resetting to Kansas should always be instant or animated.
-      // For now, if it's explicitly Kansas, and not the very first load, maybe snap or animate based on context.
-      // Let's assume snaps (0ms) are fine unless it's the first IP update.
     }
     
     if (globeEl.current && globeReady) {
@@ -292,17 +285,22 @@ const GlobeViewer: React.FC = () => {
         {/* Controls Panel */}
         <div className="flex-1 lg:flex-1 relative overflow-hidden">
           <div className="h-full flex flex-col justify-center items-center p-4 md:p-6 lg:p-10">
+            {/* Updated Title/Subtitle section */}
             <div className="mb-4 md:mb-6 lg:mb-10 text-center">
-              <h1 className="text-xl lg:text-4xl font-light text-neutral-100 mb-2">
-                Antipodal Earth
-              </h1>
-              <p className="text-sm text-neutral-500">
-                Explore Earth's opposite points
-              </p>
+              {/* Flex container for responsive title/subtitle layout */}
+              <div className="flex flex-row items-baseline justify-center gap-x-2 lg:flex-col lg:items-center">
+                <h1 className="text-3xl lg:text-4xl font-light text-neutral-100 lg:mb-2">
+                  Antipode
+                </h1>
+                <p className="text-sm lg:text-base text-neutral-400 font-normal">
+                  Explore Earth's opposite points
+                </p>
+              </div>
             </div>
             <div className="w-full max-w-xl lg:max-w-xs">
-              <div className="flex flex-row items-start gap-x-4 lg:flex-col lg:items-stretch lg:gap-x-0 lg:gap-y-6">
+              <div className="flex flex-row items-stretch gap-x-4 lg:flex-col lg:items-stretch lg:gap-x-0 lg:gap-y-6">
                 <div className="flex-1 w-full lg:flex-none space-y-3 lg:space-y-4">
+                  {/* Primary Location */}
                   <div className="group">
                     <div className="flex items-center gap-2 mb-1 sm:mb-2">
                       <MapPin size={12} className="text-blue-400" />
@@ -315,6 +313,7 @@ const GlobeViewer: React.FC = () => {
                       </div>
                     </div>
                   </div>
+                  {/* Antipodal Location */}
                   {pointOfView.lat !== undefined && pointOfView.lng !== undefined && (
                     <div className="group">
                       <div className="flex items-center gap-2 mb-1 sm:mb-2">
@@ -330,7 +329,8 @@ const GlobeViewer: React.FC = () => {
                     </div>
                   )}
                 </div>
-                <div className="flex-1 w-full lg:flex-none space-y-2 lg:space-y-2.5">
+                {/* Button Block remains vertically centered for narrow view */}
+                <div className="flex-1 w-full lg:flex-none flex flex-col justify-center space-y-2 lg:space-y-2.5 lg:justify-start">
                   <button
                     onClick={resetToUserLocation}
                     disabled={isLoading}
@@ -358,7 +358,7 @@ const GlobeViewer: React.FC = () => {
         </div>
       </div>
 
-      {/* Corrected Modal section - this is the original, working modal structure */}
+      {/* Modal section */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-lg animate-fadeIn">
           <div className="bg-neutral-800/70 backdrop-blur-xl rounded-2xl p-7 max-w-md w-full border border-neutral-700 shadow-2xl animate-slideUp">
