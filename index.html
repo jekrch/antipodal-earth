@@ -5,15 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JuxtaGlobe</title>
   <script>
-    // This script runs before the main application bundle.
     (function () {
       var redirect = sessionStorage.redirect;
-      // Delete the redirect key from sessionStorage to clean up.
       delete sessionStorage.redirect;
-      // If a redirect path was stored and it's different from the current path (which will be '/'),
-      // then update the history state to the intended path.
-      if (redirect && redirect !== location.href) { // location.href will be like https://www.juxtaglobe.com/
-                                                  // after the meta refresh. redirect will be like /antipodal
+      // Compare with the path parts, not the full href
+      var currentPath = location.pathname + location.search + location.hash;
+      if (redirect && redirect !== currentPath && redirect !== '/') { // Avoid redirecting if already on target or if target is just '/' after refresh
         history.replaceState(null, null, redirect);
       }
     })();
@@ -22,6 +19,6 @@
   <link rel="stylesheet" crossorigin href="/assets/index-CPfdLgLs.css">
 </head>
 <body>
-  <div id="root"></div>
+  <div id="root"></div> {/* Ensure this path is correct for your build output */}
 </body>
 </html>
