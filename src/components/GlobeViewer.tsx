@@ -335,7 +335,7 @@ const GlobeViewer: React.FC = () => {
                                             </div>
                                             {pointOfView.lat !== undefined && pointOfView.lng !== undefined && (
                                                 <a
-                                                    href={`https://www.google.com/maps/@${pointOfView.lat},${pointOfView.lng},4z?entry=ttu`}
+                                                    href={`https://www.google.com/maps/search/?api=1&query=${pointOfView.lat},${pointOfView.lng}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     title="Open in Google Maps"
