@@ -11,6 +11,7 @@
         "react": "^19.1.0",
         "react-dom": "^19.1.0",
         "react-globe.gl": "^2.33.2",
+        "react-icons": "^5.5.0",
         "react-router-dom": "^7.6.1",
         "three": "^0.177.0",
       },
@@ -632,6 +633,8 @@
     "react-dom": ["react-dom@19.1.0", "", { "dependencies": { "scheduler": "^0.26.0" }, "peerDependencies": { "react": "^19.1.0" } }, "sha512-Xs1hdnE+DyKgeHJeJznQmYMIBG3TKIHJJT95Q58nHLSrElKlGQqDTR2HQ9fx5CN/Gk6Vh/kupBTDLU11/nDk/g=="],
 
     "react-globe.gl": ["react-globe.gl@2.33.2", "", { "dependencies": { "globe.gl": "^2.41", "prop-types": "15", "react-kapsule": "^2.5" }, "peerDependencies": { "react": "*" } }, "sha512-+keFNBxw4B45nyPm9fq2IeZNKgK6qfEivKXtaG6mSe6PRZF1QL5UeFxUZs07fSraY4GDPt2hL7xhlk2GunyZiA=="],
+
+    "react-icons": ["react-icons@5.5.0", "", { "peerDependencies": { "react": "*" } }, "sha512-MEFcXdkP3dLo8uumGI5xN3lDFNsRtrjbOEKDLD7yv76v4wpnEq2Lt2qeHaQOr34I/wPN3s3+N08WkQ+CW37Xiw=="],
 
     "react-is": ["react-is@16.13.1", "", {}, "sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ=="],
 
