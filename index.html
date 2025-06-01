@@ -1,26 +1,27 @@
 <!doctype html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <!-- <link rel="icon" type="image/svg+xml" href="/vite.svg" /> -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JuxtaGlobe</title>
-  <script type="module" crossorigin src="/assets/index-B2RmTvxd.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-CPfdLgLs.css">
-</head>
-
-<body>
-  <div id="root"></div>
   <script>
+    // This script runs before the main application bundle.
     (function () {
       var redirect = sessionStorage.redirect;
+      // Delete the redirect key from sessionStorage to clean up.
       delete sessionStorage.redirect;
-      if (redirect && redirect != location.href) {
+      // If a redirect path was stored and it's different from the current path (which will be '/'),
+      // then update the history state to the intended path.
+      if (redirect && redirect !== location.href) { // location.href will be like https://www.juxtaglobe.com/
+                                                  // after the meta refresh. redirect will be like /antipodal
         history.replaceState(null, null, redirect);
       }
     })();
   </script>
+  <script type="module" crossorigin src="/assets/index-B2RmTvxd.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CPfdLgLs.css">
+</head>
+<body>
+  <div id="root"></div>
 </body>
-
 </html>
