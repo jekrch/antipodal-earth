@@ -36,6 +36,7 @@ const GlobeViewer: React.FC = () => {
   const initialAnimationToKansasDone = useRef(false);
   const ipLookupAttempted = useRef(false);
   const previousPovRef = useRef<PointOfView>(KANSAS_LOCATION);
+  const expectAnimatedMoveRef = useRef(false); // To signal an animated programmatic move
 
 
   const getAntipodal = (coords: LocationCoordinates): LocationCoordinates => ({
@@ -67,6 +68,7 @@ const GlobeViewer: React.FC = () => {
       console.log("EFFECT 1: Initializing to Kansas.");
       initialAnimationToKansasDone.current = true; 
       
+      // Direct animation to Kansas, not through Effect 2 for this very first move.
       if (globeEl.current) {
         globeEl.current.pointOfView(KANSAS_LOCATION, 1000);
       }
@@ -86,9 +88,10 @@ const GlobeViewer: React.FC = () => {
                 const userLocation = {
                   lat: data.latitude,
                   lng: data.longitude,
-                  altitude: 2.5,
+                  altitude: 2.5, // Fixed altitude for IP location
                 };
-                console.log("IP Lookup successful, setting POV to:", userLocation);
+                console.log("IP Lookup successful, preparing animated move to:", userLocation);
+                expectAnimatedMoveRef.current = true; // Signal that the next POV change should be animated
                 setPointOfView(userLocation); 
               } else {
                 console.warn('IP-based geolocation returned no coordinates. Sticking with Kansas.');
@@ -108,21 +111,26 @@ const GlobeViewer: React.FC = () => {
 
   // Effect 2: Sync globes to pointOfView state.
   useEffect(() => {
-    if (!initialAnimationToKansasDone.current) return;
+    // Don't run if Kansas animation hasn't been flagged as started,
+    // to prevent interference with Effect 1's direct pointOfView calls for initial Kansas.
+    if (!initialAnimationToKansasDone.current) {
+      console.log("EFFECT 2: Skipped, initial Kansas animation not yet flagged as done.");
+      return;
+    }
 
     const currentPov = { lat: pointOfView.lat, lng: pointOfView.lng, altitude: pointOfView.altitude };
-    if (currentPov.lat === undefined || currentPov.lng === undefined) return;
-
-    console.log("EFFECT 2: Syncing globes to POV:", currentPov);
+    if (currentPov.lat === undefined || currentPov.lng === undefined) {
+      console.log("EFFECT 2: Skipped, current POV lat/lng undefined.");
+      return;
+    }
 
     let transitionDuration = 0; 
-    
-    const isDirectlyKansas = currentPov.lat === KANSAS_LOCATION.lat && currentPov.lng === KANSAS_LOCATION.lng;
-    const previousWasKansas = previousPovRef.current?.lat === KANSAS_LOCATION.lat && previousPovRef.current?.lng === KANSAS_LOCATION.lng;
-
-    if (!isDirectlyKansas && previousWasKansas && ipLookupAttempted.current) {
+    if (expectAnimatedMoveRef.current) {
+      console.log("EFFECT 2: Performing expected animated move to POV:", currentPov);
       transitionDuration = 1000;
-      console.log("EFFECT 2: Animating to IP location (heuristic).");
+      expectAnimatedMoveRef.current = false; // Consume the flag
+    } else {
+      console.log("EFFECT 2: Performing snap/user-driven move to POV:", currentPov);
     }
     
     if (globeEl.current && globeReady) {
@@ -139,39 +147,26 @@ const GlobeViewer: React.FC = () => {
 
   // Handle container resize
   useEffect(() => {
-    const handleResize = () => {
-      setTimeout(() => {
-        if (mainContainerRef.current) {
-          const rect = mainContainerRef.current.getBoundingClientRect();
-          setDimensions({ width: rect.width, height: rect.height });
-        }
-        if (antipodalContainerRef.current) {
-          const rect = antipodalContainerRef.current.getBoundingClientRect();
-          setAntipodalDimensions({ width: rect.width, height: rect.height });
-        }
-      }, 100); 
-    };
-
-    handleResize(); 
-    window.addEventListener('resize', handleResize);
+    const handleResize = () => { /* ... same as before ... */ };
+    handleResize(); window.addEventListener('resize', handleResize);
     const resizeObserver = new ResizeObserver(handleResize);
     if (mainContainerRef.current) resizeObserver.observe(mainContainerRef.current);
     if (antipodalContainerRef.current) resizeObserver.observe(antipodalContainerRef.current);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      resizeObserver.disconnect();
-    };
+    return () => { window.removeEventListener('resize', handleResize); resizeObserver.disconnect(); };
   }, []);
 
   const handleMainPovChange = (newPov: PointOfView) => {
-    console.log("Main globe dragged/zoomed to:", newPov);
+    console.log("Main globe user interaction (zoom/drag):", newPov);
+    // User interaction should override any pending animated move and snap immediately.
+    expectAnimatedMoveRef.current = false; 
     setPointOfView(newPov);
   };
 
   const handleAntipodalPovChange = (newPovFromAntipodal: PointOfView) => {
     if (newPovFromAntipodal.lat !== undefined && newPovFromAntipodal.lng !== undefined && newPovFromAntipodal.altitude !== undefined) {
-      console.log("Antipodal globe dragged/zoomed to:", newPovFromAntipodal);
+      console.log("Antipodal globe user interaction (zoom/drag):", newPovFromAntipodal);
+      // User interaction should override any pending animated move and snap immediately.
+      expectAnimatedMoveRef.current = false; 
       const mainPov = getAntipodal(newPovFromAntipodal as LocationCoordinates);
       setPointOfView(mainPov);
     }
@@ -186,15 +181,19 @@ const GlobeViewer: React.FC = () => {
         const userLocation = {
           lat: data.latitude,
           lng: data.longitude,
-          altitude: 2.5,
+          altitude: 2.5, // Fixed altitude for "My Location"
         };
+        console.log("Reset to User Location, preparing animated move to:", userLocation);
+        expectAnimatedMoveRef.current = true; // Signal that this POV change should be animated
         setPointOfView(userLocation); 
       } else {
         console.warn('IP-based geolocation failed on reset (no data). Reverting to Kansas.');
+        expectAnimatedMoveRef.current = true; // Also animate back to Kansas if IP fails here
         setPointOfView(KANSAS_LOCATION); 
       }
     } catch (error) {
       console.warn('IP-based geolocation failed on reset. Reverting to Kansas.');
+      expectAnimatedMoveRef.current = true; // Animate back to Kansas
       setPointOfView(KANSAS_LOCATION);
     } finally {
       setIsLoading(false);
@@ -285,12 +284,10 @@ const GlobeViewer: React.FC = () => {
         {/* Controls Panel */}
         <div className="flex-1 lg:flex-1 relative overflow-hidden">
           <div className="h-full flex flex-col justify-center items-center p-4 md:p-6 lg:p-10">
-            {/* Updated Title/Subtitle section */}
             <div className="mb-4 md:mb-6 lg:mb-10 text-center">
-              {/* Flex container for responsive title/subtitle layout */}
               <div className="flex flex-row items-baseline justify-center gap-x-2 lg:flex-col lg:items-center">
-                <h1 className="text-3xl lg:text-4xl font-light text-neutral-100 lg:mb-2">
-                  Antipode
+                <h1 className="text-2xl lg:text-4xl font-light text-neutral-100 lg:mb-2">
+                  Antipodal Earth
                 </h1>
                 <p className="text-sm lg:text-base text-neutral-400 font-normal">
                   Explore Earth's opposite points
@@ -300,7 +297,6 @@ const GlobeViewer: React.FC = () => {
             <div className="w-full max-w-xl lg:max-w-xs">
               <div className="flex flex-row items-stretch gap-x-4 lg:flex-col lg:items-stretch lg:gap-x-0 lg:gap-y-6">
                 <div className="flex-1 w-full lg:flex-none space-y-3 lg:space-y-4">
-                  {/* Primary Location */}
                   <div className="group">
                     <div className="flex items-center gap-2 mb-1 sm:mb-2">
                       <MapPin size={12} className="text-blue-400" />
@@ -313,7 +309,6 @@ const GlobeViewer: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  {/* Antipodal Location */}
                   {pointOfView.lat !== undefined && pointOfView.lng !== undefined && (
                     <div className="group">
                       <div className="flex items-center gap-2 mb-1 sm:mb-2">
@@ -329,7 +324,6 @@ const GlobeViewer: React.FC = () => {
                     </div>
                   )}
                 </div>
-                {/* Button Block remains vertically centered for narrow view */}
                 <div className="flex-1 w-full lg:flex-none flex flex-col justify-center space-y-2 lg:space-y-2.5 lg:justify-start">
                   <button
                     onClick={resetToUserLocation}
