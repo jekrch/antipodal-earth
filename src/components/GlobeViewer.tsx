@@ -286,11 +286,11 @@ const GlobeViewer: React.FC = () => {
           <div className="h-full flex flex-col justify-center items-center p-4 md:p-6 lg:p-10">
             <div className="mb-4 md:mb-6 lg:mb-10 text-center">
               <div className="flex flex-row items-baseline justify-center gap-x-2 lg:flex-col lg:items-center">
-                <h1 className="text-2xl lg:text-4xl font-light text-neutral-100 lg:mb-2">
+                <h1 className="text-lg lg:text-4xl font-light text-neutral-100 lg:mb-2">
                   Antipodal Earth
                 </h1>
                 <p className="text-sm lg:text-base text-neutral-400 font-normal">
-                  Explore Earth's opposite points
+                  Explore Earth's antipodes
                 </p>
               </div>
             </div>
@@ -304,7 +304,7 @@ const GlobeViewer: React.FC = () => {
                     </div>
                     <div className="bg-neutral-800/50 backdrop-blur-md rounded-lg sm:rounded-xl p-2.5 sm:p-3 border border-neutral-700/80 
                                     transition-all duration-300 group-hover:border-blue-500/70 group-hover:shadow-xl group-hover:shadow-blue-500/10">
-                      <div className="font-mono text-sm sm:text-base text-neutral-100 tabular-nums">
+                      <div className="font-mono text-xs sm:text-sm text-neutral-100 tabular-nums">
                         {pointOfView.lat?.toFixed(3) ?? '0.000'}°, {pointOfView.lng?.toFixed(3) ?? '0.000'}°
                       </div>
                     </div>
@@ -317,7 +317,7 @@ const GlobeViewer: React.FC = () => {
                       </div>
                       <div className="bg-neutral-800/50 backdrop-blur-md rounded-lg sm:rounded-xl p-2.5 sm:p-3 border border-neutral-700/80
                                       transition-all duration-300 group-hover:border-emerald-500/70 group-hover:shadow-xl group-hover:shadow-emerald-500/10">
-                        <div className="font-mono text-sm sm:text-base text-neutral-100 tabular-nums">
+                        <div className="font-mono text-sm sm:text-sm text-neutral-100 tabular-nums">
                           {(-pointOfView.lat).toFixed(3)}°, {(pointOfView.lng < 0 ? pointOfView.lng + 180 : pointOfView.lng - 180).toFixed(3)}°
                         </div>
                       </div>
