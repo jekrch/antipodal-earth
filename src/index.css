@@ -1,0 +1,33 @@
+/* index.css */
+@import "tailwindcss"; /* Correct for v4 */
+
+/* :root variables and global styles AFTER Tailwind import */
+/* These act as fallbacks or global settings that Tailwind utilities can override */
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif; /* Or your preferred font stack */
+  line-height: 1.5;
+  font-weight: 400;
+
+  color-scheme: dark; /* Good for OS-level dark mode integration */
+
+  /* Default text and background for the page if not overridden by Tailwind on #root or body */
+  /* color: rgba(255, 255, 255, 0.87); */ /* Consider letting Tailwind manage text color primarily */
+  /* background-color: #0a0a0a; */      /* Consider setting bg on body/root via Tailwind */
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html, body, #root { /* Or your main app wrapper */
+  width: 100%;
+  height: 100%;
+  /* overflow: hidden; /* Still consider if this is needed globally vs. on the component root */
+}
+
+/* Your custom keyframes & animations */
+@keyframes fadeIn { /* ... */ }
+@keyframes slideUp { /* ... */ }
+.animate-fadeIn { animation: fadeIn 0.3s ease-out forwards; }
+.animate-slideUp { animation: slideUp 0.3s ease-out forwards; }
