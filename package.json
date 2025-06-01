@@ -1,8 +1,8 @@
 {
-  "name": "antipodal-earth",
+  "name": "juxta-globe",
   "private": true,
   "version": "0.0.0",
-  "homepage": "https://jekrch.github.io/antipodal-earth",
+  "homepage": "https://www.juxtaglobe.com",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "predeploy": "bunx --bun vite build",
-  "deploy": "gh-pages -d dist"
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
     "-": "^0.0.1",
@@ -21,6 +21,7 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-globe.gl": "^2.33.2",
+    "react-router-dom": "^7.6.1",
     "three": "^0.177.0"
   },
   "devDependencies": {
