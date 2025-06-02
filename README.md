@@ -92,14 +92,6 @@ This will build the project and push to the `gh-pages` branch.
 - `bun run lint:fix` - Fix ESLint issues
 - `bun run deploy` - Deploy to GitHub Pages
 
-## Browser Support
-
-- Chrome/Edge (latest)
-- Firefox (latest)
-- Safari (latest)
-- Mobile browsers with WebGL support
-
-
 ## Acknowledgments
 
 - [Three.js](https://threejs.org/) for 3D rendering
