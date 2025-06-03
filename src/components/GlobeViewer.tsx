@@ -6,12 +6,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import InfoModal from './InfoModal';
 import { KANSAS_LOCATION, prehistoricMapOptions } from '../utils/mapData';
 import type { PointOfView, LocationCoordinates, PrehistoricMapOption } from '../types';
-import GlobePanel from './GlobalPanel'; 
+import GlobePanel from './GlobalPanel';
 
 // Define altitude targets
 // Ensure WIDE_LAYOUT_ALTITUDE_TARGET has a number value, falling back if KANSAS_LOCATION.altitude is undefined
 const WIDE_LAYOUT_ALTITUDE_TARGET = KANSAS_LOCATION.altitude ?? 2.5; // Default to 2.5 if undefined
-const NARROW_LAYOUT_ALTITUDE_TARGET = 2; 
+const NARROW_LAYOUT_ALTITUDE_TARGET = 2;
 
 const GlobeViewer: React.FC = () => {
     const globeEl = useRef<GlobeMethods | undefined>(undefined);
@@ -128,7 +128,7 @@ const GlobeViewer: React.FC = () => {
                     lat: KANSAS_LOCATION.lat,
                     lng: KANSAS_LOCATION.lng,
                     altitude: KANSAS_LOCATION.altitude ?? WIDE_LAYOUT_ALTITUDE_TARGET // Ensure altitude is a number
-                  });
+                });
             secondaryGlobeEl.current.pointOfView({ ...initialSecondaryPovBase, altitude: initialAltitude }, 0);
         }
 
@@ -440,9 +440,14 @@ const GlobeViewer: React.FC = () => {
                 <div className="flex-1 lg:flex-1 relative overflow-hidden">
                     <div className="h-full flex flex-col justify-center items-center p-4 md:p-6 lg:p-10">
                         <div className="mb-4 md:mb-6 lg:mb-10 text-center">
-                            <div className="flex flex-row items-baseline justify-center gap-x-2 lg:flex-col lg:items-center">
-                                <h1 className="text-lg lg:text-4xl font-light text-neutral-100 lg:mb-2">JuxtaGlobe</h1>
-                                <p className="!text-left text-sm lg:text-base text-neutral-400 font-normal">{juxtaGlobeSubtitle}</p>
+                            <div className="flex flex-row items-center justify-center gap-x-4 md:gap-x-4 lg:flex-col lg:items-center lg:gap-x-0">
+                                <h1 className="text-xl md:text-2xl lg:text-4xl font-light text-neutral-100 lg:mb-2 whitespace-nowrap">
+                                    JuxtaGlobe
+                                </h1>
+                                <div className="h-4 md:h-5 w-px bg-neutral-600 lg:hidden"></div>
+                                <p className="text-sm md:text-sm lg:text-base text-neutral-400 font-normal max-w-[200px] md:max-w-[250px] lg:max-w-none text-left">
+                                    {juxtaGlobeSubtitle}
+                                </p>
                             </div>
                         </div>
                         <div className="w-full max-w-xl lg:max-w-xs">
