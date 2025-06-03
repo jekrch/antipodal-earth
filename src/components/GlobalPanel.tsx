@@ -15,6 +15,7 @@ interface GlobePanelProps {
   dimensions: { width: number; height: number };
   labelText: string;
   labelColorIndicatorClass: string;
+  showMapTiles?: boolean;
 }
 
 const GlobePanel: React.FC<GlobePanelProps> = ({
@@ -29,7 +30,12 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
   dimensions,
   labelText,
   labelColorIndicatorClass,
+  showMapTiles = false,
 }) => {
+  // Only show map tiles if the globe image URL contains "earth" (case-insensitive)
+  const isEligibleForMapTiles = globeImageUrl.toLowerCase().includes('earth');
+  const shouldShowTiles = showMapTiles && isEligibleForMapTiles;
+
   return (
     <div className="flex-1 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-neutral-800">
       <div className="h-full flex flex-col">
@@ -41,7 +47,7 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
             </h2>
           </div>
         </div>
-        <div ref={panelRef} className="flex-1 relative">
+        <div ref={panelRef} className="flex-1 relative select-none">
           {(dimensions.width > 0 && dimensions.height > 0) && (
             <div className="absolute inset-0 flex items-center justify-center">
               <Globe
@@ -50,12 +56,12 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
                 bumpImageUrl={bumpImageUrl}
                 backgroundImageUrl=""
                 backgroundColor="rgba(0,0,0,0)"
-                pointsData={pointsData}
+                pointsData={[]} // Empty array - no globe points
                 pointLat="lat"
                 pointLng="lng"
                 pointLabel="name"
-                pointColor="color"
-                pointAltitude={0.015}
+                pointColor=""
+                pointAltitude={0}
                 pointRadius="size"
                 onGlobeReady={onGlobeReady}
                 onZoom={onZoom}
@@ -65,7 +71,12 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
                 width={dimensions.width}
                 height={dimensions.height}
                 rendererConfig={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
+                globeTileEngineUrl={shouldShowTiles ? (x, y, l) => `https://tile.openstreetmap.org/${l}/${x}/${y}.png` : undefined}
               />
+              {/* Static dot overlay - always in the center */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className={`w-3 h-3 rounded-full shadow-lg shadow-red-500/50 ${labelColorIndicatorClass}`} />
+              </div>
             </div>
           )}
         </div>

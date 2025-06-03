@@ -11,6 +11,8 @@ interface InfoModalProps {
   prehistoricMapOptions: PrehistoricMapOption[];
   onSecondaryGlobeOptionChange: (event: React.ChangeEvent<HTMLSelectElement>) => void;
   onAttributionClick: (text: string, event: React.MouseEvent) => void;
+  showMapTiles: boolean;
+  onMapTilesToggle: (checked: boolean) => void;
 }
 
 const InfoModal: React.FC<InfoModalProps> = ({
@@ -21,6 +23,8 @@ const InfoModal: React.FC<InfoModalProps> = ({
   prehistoricMapOptions,
   onSecondaryGlobeOptionChange,
   onAttributionClick,
+  showMapTiles,
+  onMapTilesToggle,
 }) => {
   if (!isOpen) return null;
 
@@ -63,7 +67,27 @@ const InfoModal: React.FC<InfoModalProps> = ({
           )}
         </div>
 
-        <div className="space-y-3 text-neutral-300 text-sm leading-relaxed">
+        <div className="mb-4">
+          <h3 className="text-neutral-100 font-semibold mb-2">Map Overlay</h3>
+          <label className="flex items-center gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={showMapTiles}
+              onChange={(e) => onMapTilesToggle(e.target.checked)}
+              className="w-4 h-4 rounded border-neutral-600 bg-neutral-700/60 text-blue-500 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 focus:ring-offset-neutral-800"
+            />
+            <div className="flex-1">
+              <span className="text-sm text-neutral-100 group-hover:text-white transition-colors">
+                Show street map overlay
+              </span>
+              <p className="text-xs text-neutral-500 mt-0.5">
+                Displays OpenStreetMap data on modern Earth-based globes
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* <div className="space-y-3 text-neutral-300 text-sm leading-relaxed">
           {secondaryGlobeMode === 'antipodal' ? ( <p> An antipode is the point on Earth's surface directly opposite your location. If you could dig straight through the Earth's center, you'd emerge there. Interestingly, most of Earth's land has its antipode in water; only about 4% of land is antipodal to other land! </p> ) : selectedPrehistoricMap ? ( <p> This map depicts Earth during the <strong className="text-neutral-100">{selectedPrehistoricMap.name.split('(')[0].trim()}</strong> {selectedPrehistoricMap.name.match(/\(([^)]+)\)/)?.[1] ? <span className="text-neutral-200">{` (approximately ${selectedPrehistoricMap.name.match(/\(([^)]+)\)/)?.[1]})`}</span> : ''}. Continental configurations and coastlines were vastly different from today. Locations are overlaid using modern coordinates, offering a glimpse into deep time. </p> ) : null}
           <div className="pt-2">
             <h3 className="text-neutral-100 font-semibold mb-1.5">Controls</h3>
@@ -71,7 +95,7 @@ const InfoModal: React.FC<InfoModalProps> = ({
               <li>Drag globes to rotate.</li> <li>Scroll or pinch to zoom.</li> <li>Globes are synced.</li> <li>Use "My Location" to re-center.</li>
             </ul>
           </div>
-        </div>
+        </div> */}
 
         <div className="mt-6 pt-4 border-t border-neutral-700/70 flex justify-between items-center text-xs">
           <p className="text-neutral-500">

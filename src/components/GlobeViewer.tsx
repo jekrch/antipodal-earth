@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { GlobeMethods } from 'react-globe.gl';
 import { MapPin, Globe2, Navigation, Settings, ExternalLink } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 
 import InfoModal from './InfoModal';
 import { KANSAS_LOCATION, prehistoricMapOptions } from '../utils/mapData';
@@ -44,6 +44,33 @@ const GlobeViewer: React.FC = () => {
 
     const { mapSlug: mapSlugFromParams } = useParams<{ mapSlug?: string }>();
     const navigate = useNavigate();
+    
+    // Add search params handling
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [showMapTiles, setShowMapTiles] = useState(() => {
+        return searchParams.get('map') === 't';
+    });
+
+    // Sync URL parameter with state
+    useEffect(() => {
+        const tilesParam = searchParams.get('map');
+        const shouldShowTiles = tilesParam === 't';
+        if (shouldShowTiles !== showMapTiles) {
+            setShowMapTiles(shouldShowTiles);
+        }
+    }, [searchParams]);
+
+    // Handle map tiles toggle
+    const handleMapTilesToggle = (checked: boolean) => {
+        setShowMapTiles(checked);
+        const newSearchParams = new URLSearchParams(searchParams);
+        if (checked) {
+            newSearchParams.set('map', 't');
+        } else {
+            newSearchParams.delete('map');
+        }
+        setSearchParams(newSearchParams, { replace: true });
+    };
 
     useEffect(() => {
         let determinedMode: 'antipodal' | 'prehistoric_same_point' = 'antipodal';
@@ -408,7 +435,7 @@ const GlobeViewer: React.FC = () => {
     return (
         <div className="fixed inset-0 w-full h-full bg-neutral-950 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-neutral-950/30 to-neutral-950 pointer-events-none" />
-            <div className="relative h-full flex flex-col lg:flex-row gap-0">
+            <div className="relative h-full flex flex-col lg:flex-row gap-0 select-none">
                 <GlobePanel
                     panelRef={secondaryGlobePanelRef as any}
                     globeRef={secondaryGlobeEl}
@@ -421,6 +448,7 @@ const GlobeViewer: React.FC = () => {
                     dimensions={secondaryGlobeDimensions}
                     labelText={secondaryGlobeLabel}
                     labelColorIndicatorClass={secondaryGlobeLabelColor}
+                    showMapTiles={showMapTiles}
                 />
 
                 <GlobePanel
@@ -435,11 +463,12 @@ const GlobeViewer: React.FC = () => {
                     dimensions={primaryGlobeDimensions}
                     labelText="Primary"
                     labelColorIndicatorClass="bg-blue-500"
+                    showMapTiles={showMapTiles}
                 />
 
                 <div className="flex-1 lg:flex-1 relative overflow-hidden">
                     <div className="h-full flex flex-col justify-center items-center p-4 md:p-6 lg:p-10">
-                        <div className="mb-4 md:mb-6 lg:mb-10 text-center">
+                        <div className="mb-4 md:mb-6 lg:mb-10 text-center select-none">
                             <div className="flex flex-row items-center justify-center gap-x-4 md:gap-x-4 lg:flex-col lg:items-center lg:gap-x-0">
                                 <h1 className="text-xl md:text-2xl lg:text-4xl font-light text-neutral-100 lg:mb-2 whitespace-nowrap">
                                     JuxtaGlobe
@@ -535,6 +564,8 @@ const GlobeViewer: React.FC = () => {
                 prehistoricMapOptions={prehistoricMapOptions}
                 onSecondaryGlobeOptionChange={handleSecondaryGlobeOptionChange}
                 onAttributionClick={handleAttributionClick}
+                showMapTiles={showMapTiles}
+                onMapTilesToggle={handleMapTilesToggle}
             />
             {attributionPopover && (
                 <div
