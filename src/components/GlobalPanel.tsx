@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import type { PointOfView } from '../types';
@@ -16,6 +16,7 @@ interface GlobePanelProps {
   labelText: string;
   labelColorIndicatorClass: string;
   showMapTiles?: boolean;
+  zoomSpeed?: number;
 }
 
 const GlobePanel: React.FC<GlobePanelProps> = ({
@@ -31,10 +32,28 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
   labelText,
   labelColorIndicatorClass,
   showMapTiles = false,
+  zoomSpeed = 20,
 }) => {
   // Only show map tiles if the globe image URL contains "earth" (case-insensitive)
   const isEligibleForMapTiles = globeImageUrl.toLowerCase().includes('earth');
   const shouldShowTiles = showMapTiles && isEligibleForMapTiles;
+
+  useEffect(() => {
+    // Access the Three.js controls after the globe is ready
+    if (globeRef.current) {
+      const globe = globeRef.current;
+      // Access the underlying Three.js controls
+      const controls = (globe as any).controls();
+      if (controls) {
+        controls.zoomSpeed = zoomSpeed;
+        controls.rotateSpeed = 1;
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.1;
+        controls.enablePan = false;
+        controls.autoRotate = false;
+      }
+    }
+  }, [globeRef, zoomSpeed]);
 
   return (
     <div className="flex-1 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-neutral-800">
@@ -62,8 +81,23 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
                 pointLabel="name"
                 pointColor=""
                 pointAltitude={0}
-                pointRadius="size"
-                onGlobeReady={onGlobeReady}
+                pointRadius="size"              
+                onGlobeReady={() => {
+                  onGlobeReady();
+                  // Set controls after globe is ready
+                  if (globeRef.current) {
+                    const globe = globeRef.current;
+                    const controls = (globe as any).controls();
+                    if (controls) {
+                      controls.zoomSpeed = zoomSpeed;
+                      controls.rotateSpeed = 1;
+                      controls.enableDamping = true;
+                      controls.dampingFactor = 0.1;
+                      controls.enablePan = false;
+                      controls.autoRotate = false;                    
+                    }
+                  }
+                }}
                 onZoom={onZoom}
                 enablePointerInteraction={true}
                 atmosphereColor={atmosphereColor}

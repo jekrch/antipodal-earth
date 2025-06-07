@@ -9,8 +9,7 @@ import type { PointOfView, LocationCoordinates, PrehistoricMapOption } from '../
 import GlobePanel from './GlobalPanel';
 
 // Define altitude targets
-// Ensure WIDE_LAYOUT_ALTITUDE_TARGET has a number value, falling back if KANSAS_LOCATION.altitude is undefined
-const WIDE_LAYOUT_ALTITUDE_TARGET = KANSAS_LOCATION.altitude ?? 2.5; // Default to 2.5 if undefined
+const WIDE_LAYOUT_ALTITUDE_TARGET = KANSAS_LOCATION.altitude ?? 2.5;
 const NARROW_LAYOUT_ALTITUDE_TARGET = 2;
 
 const GlobeViewer: React.FC = () => {
@@ -38,6 +37,8 @@ const GlobeViewer: React.FC = () => {
     const expectAnimatedMoveRef = useRef(false);
     const activeInteractionGlobeRef = useRef<'main' | 'secondary' | null>(null);
     const programmaticMoveInProgressRef = useRef(false);
+    const lastSyncTime = useRef(0);
+    const syncThrottle = useRef<NodeJS.Timeout | null>(null);
 
     const [attributionPopover, setAttributionPopover] = useState<{ text: string; x: number; y: number } | null>(null);
     const attributionPopoverRef = useRef<HTMLDivElement>(null);
@@ -45,13 +46,11 @@ const GlobeViewer: React.FC = () => {
     const { mapSlug: mapSlugFromParams } = useParams<{ mapSlug?: string }>();
     const navigate = useNavigate();
     
-    // Add search params handling
     const [searchParams, setSearchParams] = useSearchParams();
     const [showMapTiles, setShowMapTiles] = useState(() => {
         return searchParams.get('map') === 't';
     });
 
-    // Sync URL parameter with state
     useEffect(() => {
         const tilesParam = searchParams.get('map');
         const shouldShowTiles = tilesParam === 't';
@@ -60,7 +59,6 @@ const GlobeViewer: React.FC = () => {
         }
     }, [searchParams]);
 
-    // Handle map tiles toggle
     const handleMapTilesToggle = (checked: boolean) => {
         setShowMapTiles(checked);
         const newSearchParams = new URLSearchParams(searchParams);
@@ -120,7 +118,7 @@ const GlobeViewer: React.FC = () => {
     const getAntipodal = (coords: LocationCoordinates): LocationCoordinates => ({
         lat: -coords.lat,
         lng: coords.lng < 0 ? coords.lng + 180 : coords.lng - 180,
-        altitude: coords.altitude // Preserve altitude if provided
+        altitude: coords.altitude
     });
 
     const primaryGlobePointData = (): any[] => {
@@ -151,10 +149,10 @@ const GlobeViewer: React.FC = () => {
         if (secondaryGlobeEl.current) {
             const initialSecondaryPovBase = secondaryGlobeMode === 'prehistoric_same_point' && selectedPrehistoricMap
                 ? KANSAS_LOCATION
-                : getAntipodal({ // Pass specific KANSAS_LOCATION parts to getAntipodal
+                : getAntipodal({
                     lat: KANSAS_LOCATION.lat,
                     lng: KANSAS_LOCATION.lng,
-                    altitude: KANSAS_LOCATION.altitude ?? WIDE_LAYOUT_ALTITUDE_TARGET // Ensure altitude is a number
+                    altitude: KANSAS_LOCATION.altitude ?? WIDE_LAYOUT_ALTITUDE_TARGET
                 });
             secondaryGlobeEl.current.pointOfView({ ...initialSecondaryPovBase, altitude: initialAltitude }, 0);
         }
@@ -176,7 +174,7 @@ const GlobeViewer: React.FC = () => {
                             setPointOfView(prevPov => ({
                                 lat: data.latitude,
                                 lng: data.longitude,
-                                altitude: prevPov.altitude // This will be the layout-adjusted altitude, ensured to be number
+                                altitude: prevPov.altitude
                             }));
                         }
                     })
@@ -187,53 +185,28 @@ const GlobeViewer: React.FC = () => {
     }, [globeReady, secondaryGlobeReady, secondaryGlobeMode, selectedPrehistoricMap, isNarrowLayout]);
 
     useEffect(() => {
-        if (!initialAnimationToKansasDone.current) return;
+        if (!initialAnimationToKansasDone.current || activeInteractionGlobeRef.current !== null) return;
 
         const currentTargetPov = pointOfView as LocationCoordinates;
         if (currentTargetPov.lat === undefined || currentTargetPov.lng === undefined || currentTargetPov.altitude === undefined) return;
 
+        // Use animation only for programmatic moves
         let transitionDuration = expectAnimatedMoveRef.current ? 1000 : 0;
-        const isAnimated = transitionDuration > 0;
 
-        if (globeEl.current && globeReady && activeInteractionGlobeRef.current !== 'main') {
-            const globeCurrentView = globeEl.current.pointOfView();
-            if (Math.abs(globeCurrentView.lat - currentTargetPov.lat) > 0.001 ||
-                Math.abs(globeCurrentView.lng - currentTargetPov.lng) > 0.001 ||
-                Math.abs(globeCurrentView.altitude - currentTargetPov.altitude) > 0.01) {
-
-                if (isAnimated) programmaticMoveInProgressRef.current = true;
-                globeEl.current.pointOfView(currentTargetPov, transitionDuration);
-                if (isAnimated) {
-                    setTimeout(() => { programmaticMoveInProgressRef.current = false; }, transitionDuration + 100);
-                } else {
-                    programmaticMoveInProgressRef.current = false;
-                }
-            }
+        if (globeEl.current && globeReady) {
+            globeEl.current.pointOfView(currentTargetPov, transitionDuration);
         }
 
-        if (secondaryGlobeEl.current && secondaryGlobeReady && activeInteractionGlobeRef.current !== 'secondary') {
+        if (secondaryGlobeEl.current && secondaryGlobeReady) {
             const targetPovForSecondary = secondaryGlobeMode === 'prehistoric_same_point'
                 ? currentTargetPov
-                : getAntipodal(currentTargetPov); // currentTargetPov already has defined altitude
-            const secondaryGlobeInternalView = secondaryGlobeEl.current.pointOfView();
-            if (Math.abs(secondaryGlobeInternalView.lat - targetPovForSecondary.lat) > 0.001 ||
-                Math.abs(secondaryGlobeInternalView.lng - targetPovForSecondary.lng) > 0.001 ||
-                (targetPovForSecondary.altitude !== undefined && secondaryGlobeInternalView.altitude !== undefined && Math.abs(secondaryGlobeInternalView.altitude - targetPovForSecondary.altitude) > 0.01)) {
-
-                if (isAnimated) programmaticMoveInProgressRef.current = true;
-                secondaryGlobeEl.current.pointOfView(targetPovForSecondary, transitionDuration);
-                if (isAnimated) {
-                    setTimeout(() => { programmaticMoveInProgressRef.current = false; }, transitionDuration + 100);
-                } else {
-                    programmaticMoveInProgressRef.current = false;
-                }
-            }
+                : getAntipodal(currentTargetPov);
+            secondaryGlobeEl.current.pointOfView(targetPovForSecondary, transitionDuration);
         }
 
         if (expectAnimatedMoveRef.current) {
             expectAnimatedMoveRef.current = false;
         }
-        if (!isAnimated) activeInteractionGlobeRef.current = null;
 
     }, [pointOfView, globeReady, secondaryGlobeReady, secondaryGlobeMode]);
 
@@ -277,7 +250,7 @@ const GlobeViewer: React.FC = () => {
         expectAnimatedMoveRef.current = false;
 
         setPointOfView(prevPov => {
-            const currentAltitude = prevPov.altitude; // Will be a number due to previous effects/init
+            const currentAltitude = prevPov.altitude;
             if (currentAltitude === undefined) {
                 programmaticMoveInProgressRef.current = false;
                 return prevPov;
@@ -290,11 +263,11 @@ const GlobeViewer: React.FC = () => {
             if (Math.abs(currentAltitude - oldLayoutDefault) < 0.05) {
                 newAltitudeResult = newLayoutDefault;
             } else {
-                const zoomRatio = currentAltitude / oldLayoutDefault; // Both are numbers
-                newAltitudeResult = newLayoutDefault * zoomRatio; // Result is a number
+                const zoomRatio = currentAltitude / oldLayoutDefault;
+                newAltitudeResult = newLayoutDefault * zoomRatio;
             }
 
-            newAltitudeResult = Math.max(0.2, Math.min(newAltitudeResult, WIDE_LAYOUT_ALTITUDE_TARGET * 2.5)); // All args are numbers
+            newAltitudeResult = Math.max(0.2, Math.min(newAltitudeResult, WIDE_LAYOUT_ALTITUDE_TARGET * 2.5));
 
             if (Math.abs(currentAltitude - newAltitudeResult) < 0.001) {
                 programmaticMoveInProgressRef.current = false;
@@ -317,41 +290,51 @@ const GlobeViewer: React.FC = () => {
 
         if (newPovFromEvent.lat === undefined || newPovFromEvent.lng === undefined || newPovFromEvent.altitude === undefined) return;
 
+        const now = Date.now();
+        const timeSinceLastSync = now - lastSyncTime.current;
+        
+        // For mobile performance, throttle updates to 60fps (16ms)
+        if (timeSinceLastSync < 16) {
+            return;
+        }
+        lastSyncTime.current = now;
+
         expectAnimatedMoveRef.current = false;
+        activeInteractionGlobeRef.current = globeIdentifier;
 
-        const previousPovState = pointOfView;
-        // Fallback altitude for comparison, ensured to be a number
-        const comparisonAltitude = previousPovState.altitude ?? (isNarrowLayout ? NARROW_LAYOUT_ALTITUDE_TARGET : WIDE_LAYOUT_ALTITUDE_TARGET);
-
-        if (globeIdentifier === 'main') {
-            activeInteractionGlobeRef.current = 'main';
-            const altitudeChangedSignificantly = Math.abs(newPovFromEvent.altitude - comparisonAltitude) > 0.001;
-
-            if (altitudeChangedSignificantly) {
-                const targetPovForZoom = {
-                    lat: previousPovState.lat,
-                    lng: previousPovState.lng,
-                    altitude: newPovFromEvent.altitude // This is a number from event
-                };
-                setPointOfView(targetPovForZoom as LocationCoordinates);
-            } else {
-                setPointOfView(newPovFromEvent as LocationCoordinates);
-            }
-        } else if (globeIdentifier === 'secondary') {
-            activeInteractionGlobeRef.current = 'secondary';
+        // Direct synchronization between globes during interaction
+        if (globeIdentifier === 'main' && secondaryGlobeEl.current && secondaryGlobeReady) {
+            const targetPovForSecondary = secondaryGlobeMode === 'prehistoric_same_point'
+                ? newPovFromEvent
+                : getAntipodal(newPovFromEvent as LocationCoordinates);
+            secondaryGlobeEl.current.pointOfView(targetPovForSecondary, 0);
+        } else if (globeIdentifier === 'secondary' && globeEl.current && globeReady) {
             if (secondaryGlobeMode === 'prehistoric_same_point') {
-                const altitudeChangedSignificantly = Math.abs(newPovFromEvent.altitude - comparisonAltitude) > 0.001;
-                if (altitudeChangedSignificantly) {
-                    const targetPov = { lat: previousPovState.lat, lng: previousPovState.lng, altitude: newPovFromEvent.altitude };
-                    setPointOfView(targetPov as LocationCoordinates);
-                } else {
-                    setPointOfView(newPovFromEvent as LocationCoordinates);
-                }
+                globeEl.current.pointOfView(newPovFromEvent, 0);
             } else {
-                const primaryEquivalentPov = getAntipodal(newPovFromEvent as LocationCoordinates); // newPovFromEvent.altitude is number
-                setPointOfView(primaryEquivalentPov);
+                const primaryEquivalentPov = getAntipodal(newPovFromEvent as LocationCoordinates);
+                globeEl.current.pointOfView(primaryEquivalentPov, 0);
             }
         }
+
+        // Debounce state updates to prevent too many re-renders
+        if (syncThrottle.current) {
+            clearTimeout(syncThrottle.current);
+        }
+
+        syncThrottle.current = setTimeout(() => {
+            if (globeIdentifier === 'main') {
+                setPointOfView(newPovFromEvent as LocationCoordinates);
+            } else if (globeIdentifier === 'secondary') {
+                if (secondaryGlobeMode === 'prehistoric_same_point') {
+                    setPointOfView(newPovFromEvent as LocationCoordinates);
+                } else {
+                    const primaryEquivalentPov = getAntipodal(newPovFromEvent as LocationCoordinates);
+                    setPointOfView(primaryEquivalentPov);
+                }
+            }
+            syncThrottle.current = null;
+        }, 100); // Update state after 100ms of no interaction
     };
 
     const resetToUserLocation = async () => {
@@ -403,7 +386,41 @@ const GlobeViewer: React.FC = () => {
 
     const handleAttributionClick = (text: string, event: React.MouseEvent) => { event.stopPropagation(); setAttributionPopover({ text, x: event.clientX, y: event.clientY }); };
     useEffect(() => { const handleClickOutside = (event: MouseEvent) => { if (attributionPopoverRef.current && !attributionPopoverRef.current.contains(event.target as Node)) { setAttributionPopover(null); } }; if (attributionPopover) { document.addEventListener('mousedown', handleClickOutside); } else { document.removeEventListener('mousedown', handleClickOutside); } return () => { document.removeEventListener('mousedown', handleClickOutside); }; }, [attributionPopover]);
+    useEffect(() => { const handleClickOutside = (event: MouseEvent) => { if (attributionPopoverRef.current && !attributionPopoverRef.current.contains(event.target as Node)) { setAttributionPopover(null); } }; if (attributionPopover) { document.addEventListener('mousedown', handleClickOutside); } else { document.removeEventListener('mousedown', handleClickOutside); } return () => { document.removeEventListener('mousedown', handleClickOutside); }; }, [attributionPopover]);
     useEffect(() => { if (!showInfoModal) { setAttributionPopover(null); } }, [showInfoModal]);
+
+    useEffect(() => {
+        let interactionEndTimeout: NodeJS.Timeout;
+        
+        const handleInteractionEnd = () => {
+            // Clear any pending sync
+            if (syncThrottle.current) {
+                clearTimeout(syncThrottle.current);
+                syncThrottle.current = null;
+            }
+            
+            // Add a small delay before resetting to ensure smooth transition
+            clearTimeout(interactionEndTimeout);
+            interactionEndTimeout = setTimeout(() => {
+                activeInteractionGlobeRef.current = null;
+            }, 150);
+        };
+
+        // Add listeners for interaction end
+        window.addEventListener('mouseup', handleInteractionEnd);
+        window.addEventListener('touchend', handleInteractionEnd);
+        window.addEventListener('touchcancel', handleInteractionEnd);
+
+        return () => {
+            window.removeEventListener('mouseup', handleInteractionEnd);
+            window.removeEventListener('touchend', handleInteractionEnd);
+            window.removeEventListener('touchcancel', handleInteractionEnd);
+            clearTimeout(interactionEndTimeout);
+            if (syncThrottle.current) {
+                clearTimeout(syncThrottle.current);
+            }
+        };
+    }, []);
 
     const secondaryGlobeImageUrl = secondaryGlobeMode === 'prehistoric_same_point' && selectedPrehistoricMap ? selectedPrehistoricMap.url : "//unpkg.com/three-globe/example/img/earth-day.jpg";
     const secondaryGlobeAtmosphereColor = secondaryGlobeMode === 'prehistoric_same_point' ? '#f97316' : '#10b981';
@@ -449,6 +466,7 @@ const GlobeViewer: React.FC = () => {
                     labelText={secondaryGlobeLabel}
                     labelColorIndicatorClass={secondaryGlobeLabelColor}
                     showMapTiles={showMapTiles}
+                    zoomSpeed={2.0}
                 />
 
                 <GlobePanel
@@ -464,6 +482,7 @@ const GlobeViewer: React.FC = () => {
                     labelText="Primary"
                     labelColorIndicatorClass="bg-blue-500"
                     showMapTiles={showMapTiles}
+                    zoomSpeed={1.5}
                 />
 
                 <div className="flex-1 lg:flex-1 relative overflow-hidden">
