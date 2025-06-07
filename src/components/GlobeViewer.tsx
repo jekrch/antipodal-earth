@@ -290,14 +290,14 @@ const GlobeViewer: React.FC = () => {
 
         if (newPovFromEvent.lat === undefined || newPovFromEvent.lng === undefined || newPovFromEvent.altitude === undefined) return;
 
-        const now = Date.now();
-        const timeSinceLastSync = now - lastSyncTime.current;
+        // const now = Date.now();
+        // const timeSinceLastSync = now - lastSyncTime.current;
         
-        // For mobile performance, throttle updates to 60fps (16ms)
-        if (timeSinceLastSync < 16) {
-            return;
-        }
-        lastSyncTime.current = now;
+        // // For mobile performance, throttle updates to 60fps (16ms)
+        // if (timeSinceLastSync < 5) {
+        //     return;
+        // }
+        // lastSyncTime.current = now;
 
         expectAnimatedMoveRef.current = false;
         activeInteractionGlobeRef.current = globeIdentifier;
@@ -429,7 +429,7 @@ const GlobeViewer: React.FC = () => {
 
     let juxtaGlobeSubtitle = "Compare Earth's present with its past or its opposite point.";
     if (secondaryGlobeMode === 'antipodal') {
-        juxtaGlobeSubtitle = "Showing modern Earth alongside its antipodal point.";
+        juxtaGlobeSubtitle = "Showing modern Earth alongside its antipodal point";
     } else if (selectedPrehistoricMap) {
         const mapNamePart = selectedPrehistoricMap.name.split('(')[0].trim();
         const mapAgePart = selectedPrehistoricMap.name.match(/\(([^)]+)\)/)?.[1];
