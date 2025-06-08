@@ -56,7 +56,7 @@ JuxtaGlobe supports several URL parameters for sharing and bookmarking views:
 Example URLs:
 - Antipodal view of NYC: `/antipodal?lat=40.7128&lng=-74.0060&alt=2.5`
 - Dual points (NYC & Tokyo): `/dual-point?lat=40.9009&lng=-73.3583&lat2=35.8176&lng2=139.8101&alt=0.0181&alt2=0.0181&map=t`
-- Prehistoric view with tiles: `/early-jurassic?lat=41.2575&lng=-73.3982&alt=0.6000&map=t`
+- Prehistoric view with map tiles: `/early-jurassic?lat=41.2575&lng=-73.3982&alt=0.6000&map=t`
 
 ## Tech Stack
 
