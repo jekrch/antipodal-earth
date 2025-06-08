@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { GlobeMethods } from 'react-globe.gl';
 import { MapPin, Globe2, Navigation, Settings, ExternalLink, Lock, Unlock } from 'lucide-react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -41,7 +41,8 @@ const GlobeViewer: React.FC = () => {
 
     const [isNarrowLayout, setIsNarrowLayout] = useState(window.innerWidth < 1024);
 
-    const initialAnimationToKansasDone = useRef(false);
+    const initialAnimationDone = useRef(false);
+    const urlCoordsApplied = useRef(false);
     const ipLookupAttempted = useRef(false);
     const expectAnimatedMoveRef = useRef(false);
     const activeInteractionGlobeRef = useRef<'main' | 'secondary' | null>(null);
@@ -60,6 +61,40 @@ const GlobeViewer: React.FC = () => {
     useEffect(() => {
         latestPovs.current = { primary: pointOfView, secondary: secondaryPointOfView };
     }, [pointOfView, secondaryPointOfView]);
+
+
+    // effect to sync globe state to URL parameters after changes 
+    useEffect(() => {
+        if (!initialAnimationDone.current) return;
+
+        const handler = setTimeout(() => {
+            const newSearchParams = new URLSearchParams(searchParams);
+
+            if (pointOfView.lat != null && pointOfView.lng != null && pointOfView.altitude != null) {
+                newSearchParams.set('lat', pointOfView.lat.toFixed(4));
+                newSearchParams.set('lng', pointOfView.lng.toFixed(4));
+                newSearchParams.set('alt', pointOfView.altitude.toFixed(4));
+            }
+
+            if (secondaryGlobeMode === 'dual-point') {
+                if (secondaryPointOfView.lat != null && secondaryPointOfView.lng != null && secondaryPointOfView.altitude != null) {
+                    newSearchParams.set('lat2', secondaryPointOfView.lat.toFixed(4));
+                    newSearchParams.set('lng2', secondaryPointOfView.lng.toFixed(4));
+                    newSearchParams.set('alt2', secondaryPointOfView.altitude.toFixed(4));
+                }
+            } else {
+                newSearchParams.delete('lat2');
+                newSearchParams.delete('lng2');
+                newSearchParams.delete('alt2');
+            }
+
+            setSearchParams(newSearchParams, { replace: true });
+        }, 300);
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [pointOfView, secondaryPointOfView, secondaryGlobeMode, setSearchParams, searchParams]);
 
     useEffect(() => {
         const tilesParam = searchParams.get('map');
@@ -116,27 +151,14 @@ const GlobeViewer: React.FC = () => {
     };
 
     function normalizeCoordinates(lat: number, lng: number): { lat: number; lng: number } {
-        // Clamp latitude to avoid gimbal lock at poles
         const MAX_LAT = 89.9;
         const MIN_LAT = -89.9;
-
-        let normalizedLat = lat;
+        let normalizedLat = Math.max(MIN_LAT, Math.min(MAX_LAT, lat));
         let normalizedLng = lng;
-
-        // If latitude exceeds bounds, clamp it and adjust longitude for pole wrapping
-        if (lat > MAX_LAT) {
-            normalizedLat = MAX_LAT;
-        } else if (lat < MIN_LAT) {
-            normalizedLat = MIN_LAT;
-        }
-
-        // Normalize longitude to [-180, 180]
         while (normalizedLng > 180) normalizedLng -= 360;
         while (normalizedLng < -180) normalizedLng += 360;
-
         return { lat: normalizedLat, lng: normalizedLng };
     }
-
 
     const handleUserPovChange = (newPovFromEvent: PointOfView, globeIdentifier: 'main' | 'secondary') => {
         if (programmaticMoveInProgressRef.current) return;
@@ -152,50 +174,23 @@ const GlobeViewer: React.FC = () => {
         if (secondaryGlobeMode === 'dual-point') {
             if (isDualModeLocked) {
                 if (globeIdentifier === 'main') {
-                    // Normalize the calculated position to handle pole issues
-                    const targetPos = normalizeCoordinates(
-                        newPov.lat + povOffset.current.lat,
-                        newPov.lng + povOffset.current.lng
-                    );
-                    secondaryGlobeEl.current?.pointOfView({
-                        ...targetPos,
-                        altitude: newPov.altitude
-                    }, 0);
+                    const targetPos = normalizeCoordinates(newPov.lat + povOffset.current.lat, newPov.lng + povOffset.current.lng);
+                    secondaryGlobeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
                 } else {
-                    const targetPos = normalizeCoordinates(
-                        newPov.lat - povOffset.current.lat,
-                        newPov.lng - povOffset.current.lng
-                    );
-                    globeEl.current?.pointOfView({
-                        ...targetPos,
-                        altitude: newPov.altitude
-                    }, 0);
+                    const targetPos = normalizeCoordinates(newPov.lat - povOffset.current.lat, newPov.lng - povOffset.current.lng);
+                    globeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
                 }
-            } else { // Unlocked, but sync zoom live
+            } else {
                 if (globeIdentifier === 'main') {
-                    secondaryGlobeEl.current?.pointOfView({
-                        ...latestPovs.current.secondary,
-                        altitude: newPov.altitude
-                    }, 0);
+                    secondaryGlobeEl.current?.pointOfView({ ...latestPovs.current.secondary, altitude: newPov.altitude }, 0);
                 } else {
-                    globeEl.current?.pointOfView({
-                        ...latestPovs.current.primary,
-                        altitude: newPov.altitude
-                    }, 0);
+                    globeEl.current?.pointOfView({ ...latestPovs.current.primary, altitude: newPov.altitude }, 0);
                 }
             }
         } else {
-            if (globeIdentifier === 'main') {
-                const targetPov = secondaryGlobeMode === 'prehistoric_same_point'
-                    ? newPov
-                    : getAntipodal(newPov);
-                secondaryGlobeEl.current?.pointOfView(targetPov, 0);
-            } else {
-                const targetPov = secondaryGlobeMode === 'prehistoric_same_point'
-                    ? newPov
-                    : getAntipodal(newPov);
-                globeEl.current?.pointOfView(targetPov, 0);
-            }
+            const targetPov = secondaryGlobeMode === 'prehistoric_same_point' ? newPov : getAntipodal(newPov);
+            const otherGlobe = globeIdentifier === 'main' ? secondaryGlobeEl : globeEl;
+            otherGlobe.current?.pointOfView(targetPov, 0);
         }
 
         if (syncThrottle.current) clearTimeout(syncThrottle.current);
@@ -207,37 +202,19 @@ const GlobeViewer: React.FC = () => {
                     if (lastMoved === 'main') {
                         const finalPrimary = latestPovs.current.primary as LocationCoordinates;
                         setPointOfView(finalPrimary);
-
-                        // Normalize when setting state too
-                        const normalizedSecondary = normalizeCoordinates(
-                            finalPrimary.lat + povOffset.current.lat,
-                            finalPrimary.lng + povOffset.current.lng
-                        );
-                        setSecondaryPointOfView({
-                            ...normalizedSecondary,
-                            altitude: finalPrimary.altitude
-                        });
+                        const normalizedSecondary = normalizeCoordinates(finalPrimary.lat + povOffset.current.lat, finalPrimary.lng + povOffset.current.lng);
+                        setSecondaryPointOfView({ ...normalizedSecondary, altitude: finalPrimary.altitude });
                     } else {
                         const finalSecondary = latestPovs.current.secondary as LocationCoordinates;
                         setSecondaryPointOfView(finalSecondary);
-
-                        const normalizedPrimary = normalizeCoordinates(
-                            finalSecondary.lat - povOffset.current.lat,
-                            finalSecondary.lng - povOffset.current.lng
-                        );
-                        setPointOfView({
-                            ...normalizedPrimary,
-                            altitude: finalSecondary.altitude
-                        });
+                        const normalizedPrimary = normalizeCoordinates(finalSecondary.lat - povOffset.current.lat, finalSecondary.lng - povOffset.current.lng);
+                        setPointOfView({ ...normalizedPrimary, altitude: finalSecondary.altitude });
                     }
-                } else { // Unlocked
+                } else {
                     const finalPrimary = { ...latestPovs.current.primary as LocationCoordinates };
                     const finalSecondary = { ...latestPovs.current.secondary as LocationCoordinates };
-                    if (lastMoved === 'main') {
-                        finalSecondary.altitude = finalPrimary.altitude;
-                    } else {
-                        finalPrimary.altitude = finalSecondary.altitude;
-                    }
+                    if (lastMoved === 'main') finalSecondary.altitude = finalPrimary.altitude;
+                    else finalPrimary.altitude = finalSecondary.altitude;
                     setPointOfView(finalPrimary);
                     setSecondaryPointOfView(finalSecondary);
                 }
@@ -246,9 +223,7 @@ const GlobeViewer: React.FC = () => {
                     setPointOfView(latestPovs.current.primary);
                 } else {
                     const pov = latestPovs.current.secondary as LocationCoordinates;
-                    setPointOfView(secondaryGlobeMode === 'prehistoric_same_point'
-                        ? pov
-                        : getAntipodal(pov));
+                    setPointOfView(secondaryGlobeMode === 'prehistoric_same_point' ? pov : getAntipodal(pov));
                 }
             }
             syncThrottle.current = null;
@@ -257,75 +232,88 @@ const GlobeViewer: React.FC = () => {
 
     const handleDualModeLockToggle = () => {
         if (!isDualModeLocked) {
-            // About to lock - ensure we use the latest positions
-            if (syncThrottle.current) {
-                clearTimeout(syncThrottle.current);
-                syncThrottle.current = null;
-            }
-
-            // Force immediate state sync with latest positions
+            if (syncThrottle.current) { clearTimeout(syncThrottle.current); syncThrottle.current = null; }
             const currentPrimary = latestPovs.current.primary;
             const currentSecondary = latestPovs.current.secondary;
-
-            if (currentPrimary.lat != null && currentPrimary.lng != null &&
-                currentSecondary.lat != null && currentSecondary.lng != null) {
-
-                // Calculate offset based on current positions
-                const newOffset = {
-                    lat: currentSecondary.lat - currentPrimary.lat,
-                    lng: currentSecondary.lng - currentPrimary.lng
-                };
-
-                // Update offset immediately
+            if (currentPrimary.lat != null && currentPrimary.lng != null && currentSecondary.lat != null && currentSecondary.lng != null) {
+                const newOffset = { lat: currentSecondary.lat - currentPrimary.lat, lng: currentSecondary.lng - currentPrimary.lng };
                 povOffset.current = newOffset;
-
-                // Ensure state is synced before locking
                 setPointOfView(currentPrimary);
                 setSecondaryPointOfView(currentSecondary);
             }
         }
-
-        // Toggle the lock state
         setIsDualModeLocked(prev => !prev);
     };
 
+    //  This effect now handles both initial load from URL and default   **
     useEffect(() => {
-        if (!globeReady || !secondaryGlobeReady || initialAnimationToKansasDone.current) return;
+        // MODIFIED: This check now includes the urlCoordsApplied.current flag to break the loop
+        if (!globeReady || !secondaryGlobeReady || initialAnimationDone.current || urlCoordsApplied.current) {
+            console.warn("break");
+            return
+        };
 
-        initialAnimationToKansasDone.current = true;
         programmaticMoveInProgressRef.current = true;
 
-        const initialAltitude = isNarrowLayout ? NARROW_LAYOUT_ALTITUDE_TARGET : WIDE_LAYOUT_ALTITUDE_TARGET;
-        const kansasWithLayoutAltitude = { ...KANSAS_LOCATION, altitude: initialAltitude };
-        let initialSecondaryPovBase = getAntipodal(KANSAS_LOCATION);
-        if (secondaryGlobeMode === 'prehistoric_same_point' && selectedPrehistoricMap) initialSecondaryPovBase = KANSAS_LOCATION;
+        const lat = parseFloat(searchParams.get('lat') || '');
+        const lng = parseFloat(searchParams.get('lng') || '');
+        const alt = parseFloat(searchParams.get('alt') || '');
 
-        const initialSecondaryPov = { ...initialSecondaryPovBase, altitude: initialAltitude };
+        let initialPrimaryPov: LocationCoordinates | null = null;
+        let initialSecondaryPov: LocationCoordinates | null = null;
 
-        globeEl.current?.pointOfView(kansasWithLayoutAltitude, 0);
+        if (!isNaN(lat) && !isNaN(lng) && !isNaN(alt)) {
+            // THIS FLAG IS NOW THE GATEKEEPER
+            urlCoordsApplied.current = true;
+            initialPrimaryPov = { lat, lng, altitude: alt };
+
+            if (secondaryGlobeMode === 'dual-point') {
+                const lat2 = parseFloat(searchParams.get('lat2') || '');
+                const lng2 = parseFloat(searchParams.get('lng2') || '');
+                const alt2 = parseFloat(searchParams.get('alt2') || '');
+                if (!isNaN(lat2) && !isNaN(lng2) && !isNaN(alt2)) {
+                    initialSecondaryPov = { lat: lat2, lng: lng2, altitude: alt2 };
+                } else {
+                    initialSecondaryPov = { ...initialPrimaryPov };
+                }
+            } else {
+                const baseSecondary = secondaryGlobeMode === 'prehistoric_same_point' ? initialPrimaryPov : getAntipodal(initialPrimaryPov);
+                initialSecondaryPov = { ...baseSecondary, altitude: alt };
+            }
+        }
+
+        if (!initialPrimaryPov || !initialSecondaryPov) {
+            const initialAltitude = isNarrowLayout ? NARROW_LAYOUT_ALTITUDE_TARGET : WIDE_LAYOUT_ALTITUDE_TARGET;
+            initialPrimaryPov = { ...KANSAS_LOCATION, altitude: initialAltitude };
+            const baseSecondary = secondaryGlobeMode === 'prehistoric_same_point' ? KANSAS_LOCATION : getAntipodal(KANSAS_LOCATION);
+            initialSecondaryPov = { ...baseSecondary, altitude: initialAltitude };
+
+            setTimeout(() => {
+                if (ipLookupAttempted.current || urlCoordsApplied.current) return;
+                ipLookupAttempted.current = true;
+                setIsLoading(true);
+                fetch('https://ipapi.co/json/').then(res => res.json()).then(data => {
+                    if (data.latitude && data.longitude) {
+                        expectAnimatedMoveRef.current = true;
+                        setPointOfView(prev => ({ lat: data.latitude, lng: data.longitude, altitude: prev.altitude }));
+                    }
+                }).catch(e => console.warn('IP-based geolocation failed.', e)).finally(() => setIsLoading(false));
+            }, 1500);
+        }
+
+        globeEl.current?.pointOfView(initialPrimaryPov, 0);
         secondaryGlobeEl.current?.pointOfView(initialSecondaryPov, 0);
-
-        setPointOfView(kansasWithLayoutAltitude);
+        setPointOfView(initialPrimaryPov);
         setSecondaryPointOfView(initialSecondaryPov);
-        latestPovs.current = { primary: kansasWithLayoutAltitude, secondary: initialSecondaryPov };
+        latestPovs.current = { primary: initialPrimaryPov, secondary: initialSecondaryPov };
 
+        initialAnimationDone.current = true;
         setTimeout(() => { programmaticMoveInProgressRef.current = false; }, 100);
 
-        setTimeout(() => {
-            if (ipLookupAttempted.current) return;
-            ipLookupAttempted.current = true;
-            setIsLoading(true);
-            fetch('https://ipapi.co/json/').then(res => res.json()).then(data => {
-                if (data.latitude && data.longitude) {
-                    expectAnimatedMoveRef.current = true;
-                    setPointOfView(prev => ({ lat: data.latitude, lng: data.longitude, altitude: prev.altitude }));
-                }
-            }).catch(e => console.warn('IP-based geolocation failed.', e)).finally(() => setIsLoading(false));
-        }, 1500);
-    }, [globeReady, secondaryGlobeReady, secondaryGlobeMode, selectedPrehistoricMap, isNarrowLayout]);
+    }, [globeReady, secondaryGlobeReady, secondaryGlobeMode, isNarrowLayout, searchParams]); // searchParams remains a dependency, but the gatekeeper prevents the loop
 
     useEffect(() => {
-        if (secondaryGlobeMode === 'dual-point' || !initialAnimationToKansasDone.current || activeInteractionGlobeRef.current !== null || programmaticMoveInProgressRef.current) return;
+        if (secondaryGlobeMode === 'dual-point' || !initialAnimationDone.current || activeInteractionGlobeRef.current !== null || programmaticMoveInProgressRef.current) return;
         const pov = pointOfView as LocationCoordinates;
         if (pov.lat == null || pov.lng == null || pov.altitude == null) return;
         const duration = expectAnimatedMoveRef.current ? 1000 : 0;
@@ -336,7 +324,7 @@ const GlobeViewer: React.FC = () => {
     }, [pointOfView]);
 
     useEffect(() => {
-        if (secondaryGlobeMode !== 'dual-point' || !initialAnimationToKansasDone.current || activeInteractionGlobeRef.current !== null || programmaticMoveInProgressRef.current) return;
+        if (secondaryGlobeMode !== 'dual-point' || !initialAnimationDone.current || activeInteractionGlobeRef.current !== null || programmaticMoveInProgressRef.current) return;
         secondaryGlobeEl.current?.pointOfView(secondaryPointOfView, expectAnimatedMoveRef.current ? 1000 : 0);
     }, [secondaryPointOfView]);
 
@@ -389,16 +377,12 @@ const GlobeViewer: React.FC = () => {
 
     const handleSecondaryGlobeOptionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const value = event.target.value;
-        let newPath = (value === 'antipodal' || value === 'dual-point') ? `/${value}` : `/${prehistoricMapOptions.find(m => m.url === value)?.slug || 'antipodal'}`;
-        
-        // add map tiles parameter if enabled
-        if (showMapTiles) {
-            const currentSearchParams = new URLSearchParams(searchParams);
-            currentSearchParams.set('map', 't');
-            newPath += `?${currentSearchParams.toString()}`;
-        }
+        const slug = (value === 'antipodal' || value === 'dual-point') ? value : prehistoricMapOptions.find(m => m.url === value)?.slug || 'antipodal';
 
-        if (window.location.pathname.toLowerCase() !== newPath.toLowerCase()) {
+        // Preserve current search params (like 'map' for tiles, and now coordinates)
+        const newPath = `/${slug}?${searchParams.toString()}`;
+
+        if (window.location.pathname.toLowerCase() !== `/${slug}`) {
             activeInteractionGlobeRef.current = null;
             expectAnimatedMoveRef.current = true;
             navigate(newPath);
