@@ -1,4 +1,4 @@
-import React, {useEffect} from 'react';
+import React, { useEffect } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import type { PointOfView } from '../types';
@@ -35,6 +35,7 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
   const isEligibleForMapTiles = globeImageUrl.toLowerCase().includes('earth');
   const shouldShowTiles = showMapTiles && isEligibleForMapTiles;
 
+
   useEffect(() => {
     if (globeRef.current) {
       const globe = globeRef.current;
@@ -45,20 +46,26 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
         controls.dampingFactor = 0.1;
         controls.enablePan = false;
         controls.autoRotate = false;
+
+        // Add pole angle restrictions to prevent gimbal lock
+        // These values prevent the camera from going directly over the poles
+        controls.minPolarAngle = 0.1; // ~5.7 degrees from north pole
+        controls.maxPolarAngle = Math.PI - 0.1; // ~5.7 degrees from south pole
+
       }
     }
   }, [globeRef]);
 
   return (
     <div className="flex-1 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-neutral-800">
-        <div className="absolute top-0 left-0 right-0 z-10 p-4 lg:p-6 flex justify-between items-center pointer-events-none">
-            <div className="flex items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-sm pr-3 pl-2 py-1 rounded-full">
-                <div className={`w-2 h-2 ${labelColorIndicatorClass} rounded-full animate-pulsex`} />
-                <h2 className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">
-                {labelText}
-                </h2>
-            </div>
+      <div className="absolute top-0 left-0 right-0 z-10 p-4 lg:p-6 flex justify-between items-center pointer-events-none">
+        <div className="flex items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-sm pr-3 pl-2 py-1 rounded-full">
+          <div className={`w-2 h-2 ${labelColorIndicatorClass} rounded-full animate-pulsex`} />
+          <h2 className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">
+            {labelText}
+          </h2>
         </div>
+      </div>
       <div ref={panelRef} className="h-full flex-1 relative select-none">
         {(dimensions.width > 0 && dimensions.height > 0) && (
           <div className="absolute inset-0 flex items-center justify-center">

@@ -24,7 +24,7 @@ const GlobeViewer: React.FC = () => {
 
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
-    
+
     function getAntipodal(coords: LocationCoordinates): LocationCoordinates {
         return { lat: -coords.lat, lng: coords.lng < 0 ? coords.lng + 180 : coords.lng - 180, altitude: coords.altitude };
     }
@@ -53,7 +53,7 @@ const GlobeViewer: React.FC = () => {
 
     const { mapSlug: mapSlugFromParams } = useParams<{ mapSlug?: string }>();
     const navigate = useNavigate();
-    
+
     const [searchParams, setSearchParams] = useSearchParams();
     const [showMapTiles, setShowMapTiles] = useState(() => searchParams.get('map') === 't');
 
@@ -80,7 +80,7 @@ const GlobeViewer: React.FC = () => {
         let newMode: 'antipodal' | 'prehistoric_same_point' | 'dual-point' = 'antipodal';
         let newMap: PrehistoricMapOption | null = null;
         let targetPath = `/${slug}`;
-    
+
         if (slug === 'antipodal') { /* Default */ }
         else if (slug === 'dual-point') newMode = 'dual-point';
         else {
@@ -90,14 +90,14 @@ const GlobeViewer: React.FC = () => {
                 newMap = map;
             } else targetPath = '/antipodal';
         }
-    
+
         setSecondaryGlobeMode(newMode);
         setSelectedPrehistoricMap(newMap);
-    
-        const currentPath = window.location.pathname.endsWith('/') 
-            ? window.location.pathname.slice(0, -1) 
+
+        const currentPath = window.location.pathname.endsWith('/')
+            ? window.location.pathname.slice(0, -1)
             : window.location.pathname;
-            
+
         if (currentPath.toLowerCase() !== targetPath) navigate(targetPath, { replace: true });
     }, [mapSlugFromParams, navigate]);
 
@@ -115,9 +115,183 @@ const GlobeViewer: React.FC = () => {
         return [{ ...getAntipodal(pointOfView as LocationCoordinates), name: 'Antipodal Point', color: '#10b981', size: 0.8 }];
     };
 
+    function normalizeCoordinates(lat: number, lng: number): { lat: number; lng: number } {
+        // Clamp latitude to avoid gimbal lock at poles
+        const MAX_LAT = 89.9;
+        const MIN_LAT = -89.9;
+
+        let normalizedLat = lat;
+        let normalizedLng = lng;
+
+        // If latitude exceeds bounds, clamp it and adjust longitude for pole wrapping
+        if (lat > MAX_LAT) {
+            normalizedLat = MAX_LAT;
+        } else if (lat < MIN_LAT) {
+            normalizedLat = MIN_LAT;
+        }
+
+        // Normalize longitude to [-180, 180]
+        while (normalizedLng > 180) normalizedLng -= 360;
+        while (normalizedLng < -180) normalizedLng += 360;
+
+        return { lat: normalizedLat, lng: normalizedLng };
+    }
+
+
+    const handleUserPovChange = (newPovFromEvent: PointOfView, globeIdentifier: 'main' | 'secondary') => {
+        if (programmaticMoveInProgressRef.current) return;
+        if (newPovFromEvent.lat == null || newPovFromEvent.lng == null || newPovFromEvent.altitude == null) return;
+
+        const newPov = newPovFromEvent as LocationCoordinates;
+        if (globeIdentifier === 'main') latestPovs.current.primary = newPov;
+        else latestPovs.current.secondary = newPov;
+
+        expectAnimatedMoveRef.current = false;
+        activeInteractionGlobeRef.current = globeIdentifier;
+
+        if (secondaryGlobeMode === 'dual-point') {
+            if (isDualModeLocked) {
+                if (globeIdentifier === 'main') {
+                    // Normalize the calculated position to handle pole issues
+                    const targetPos = normalizeCoordinates(
+                        newPov.lat + povOffset.current.lat,
+                        newPov.lng + povOffset.current.lng
+                    );
+                    secondaryGlobeEl.current?.pointOfView({
+                        ...targetPos,
+                        altitude: newPov.altitude
+                    }, 0);
+                } else {
+                    const targetPos = normalizeCoordinates(
+                        newPov.lat - povOffset.current.lat,
+                        newPov.lng - povOffset.current.lng
+                    );
+                    globeEl.current?.pointOfView({
+                        ...targetPos,
+                        altitude: newPov.altitude
+                    }, 0);
+                }
+            } else { // Unlocked, but sync zoom live
+                if (globeIdentifier === 'main') {
+                    secondaryGlobeEl.current?.pointOfView({
+                        ...latestPovs.current.secondary,
+                        altitude: newPov.altitude
+                    }, 0);
+                } else {
+                    globeEl.current?.pointOfView({
+                        ...latestPovs.current.primary,
+                        altitude: newPov.altitude
+                    }, 0);
+                }
+            }
+        } else {
+            if (globeIdentifier === 'main') {
+                const targetPov = secondaryGlobeMode === 'prehistoric_same_point'
+                    ? newPov
+                    : getAntipodal(newPov);
+                secondaryGlobeEl.current?.pointOfView(targetPov, 0);
+            } else {
+                const targetPov = secondaryGlobeMode === 'prehistoric_same_point'
+                    ? newPov
+                    : getAntipodal(newPov);
+                globeEl.current?.pointOfView(targetPov, 0);
+            }
+        }
+
+        if (syncThrottle.current) clearTimeout(syncThrottle.current);
+        syncThrottle.current = setTimeout(() => {
+            const lastMoved = activeInteractionGlobeRef.current;
+
+            if (secondaryGlobeMode === 'dual-point') {
+                if (isDualModeLocked) {
+                    if (lastMoved === 'main') {
+                        const finalPrimary = latestPovs.current.primary as LocationCoordinates;
+                        setPointOfView(finalPrimary);
+
+                        // Normalize when setting state too
+                        const normalizedSecondary = normalizeCoordinates(
+                            finalPrimary.lat + povOffset.current.lat,
+                            finalPrimary.lng + povOffset.current.lng
+                        );
+                        setSecondaryPointOfView({
+                            ...normalizedSecondary,
+                            altitude: finalPrimary.altitude
+                        });
+                    } else {
+                        const finalSecondary = latestPovs.current.secondary as LocationCoordinates;
+                        setSecondaryPointOfView(finalSecondary);
+
+                        const normalizedPrimary = normalizeCoordinates(
+                            finalSecondary.lat - povOffset.current.lat,
+                            finalSecondary.lng - povOffset.current.lng
+                        );
+                        setPointOfView({
+                            ...normalizedPrimary,
+                            altitude: finalSecondary.altitude
+                        });
+                    }
+                } else { // Unlocked
+                    const finalPrimary = { ...latestPovs.current.primary as LocationCoordinates };
+                    const finalSecondary = { ...latestPovs.current.secondary as LocationCoordinates };
+                    if (lastMoved === 'main') {
+                        finalSecondary.altitude = finalPrimary.altitude;
+                    } else {
+                        finalPrimary.altitude = finalSecondary.altitude;
+                    }
+                    setPointOfView(finalPrimary);
+                    setSecondaryPointOfView(finalSecondary);
+                }
+            } else {
+                if (lastMoved === 'main') {
+                    setPointOfView(latestPovs.current.primary);
+                } else {
+                    const pov = latestPovs.current.secondary as LocationCoordinates;
+                    setPointOfView(secondaryGlobeMode === 'prehistoric_same_point'
+                        ? pov
+                        : getAntipodal(pov));
+                }
+            }
+            syncThrottle.current = null;
+        }, 100);
+    };
+
+    const handleDualModeLockToggle = () => {
+        if (!isDualModeLocked) {
+            // About to lock - ensure we use the latest positions
+            if (syncThrottle.current) {
+                clearTimeout(syncThrottle.current);
+                syncThrottle.current = null;
+            }
+
+            // Force immediate state sync with latest positions
+            const currentPrimary = latestPovs.current.primary;
+            const currentSecondary = latestPovs.current.secondary;
+
+            if (currentPrimary.lat != null && currentPrimary.lng != null &&
+                currentSecondary.lat != null && currentSecondary.lng != null) {
+
+                // Calculate offset based on current positions
+                const newOffset = {
+                    lat: currentSecondary.lat - currentPrimary.lat,
+                    lng: currentSecondary.lng - currentPrimary.lng
+                };
+
+                // Update offset immediately
+                povOffset.current = newOffset;
+
+                // Ensure state is synced before locking
+                setPointOfView(currentPrimary);
+                setSecondaryPointOfView(currentSecondary);
+            }
+        }
+
+        // Toggle the lock state
+        setIsDualModeLocked(prev => !prev);
+    };
+
     useEffect(() => {
         if (!globeReady || !secondaryGlobeReady || initialAnimationToKansasDone.current) return;
-        
+
         initialAnimationToKansasDone.current = true;
         programmaticMoveInProgressRef.current = true;
 
@@ -125,7 +299,7 @@ const GlobeViewer: React.FC = () => {
         const kansasWithLayoutAltitude = { ...KANSAS_LOCATION, altitude: initialAltitude };
         let initialSecondaryPovBase = getAntipodal(KANSAS_LOCATION);
         if (secondaryGlobeMode === 'prehistoric_same_point' && selectedPrehistoricMap) initialSecondaryPovBase = KANSAS_LOCATION;
-        
+
         const initialSecondaryPov = { ...initialSecondaryPovBase, altitude: initialAltitude };
 
         globeEl.current?.pointOfView(kansasWithLayoutAltitude, 0);
@@ -192,65 +366,6 @@ const GlobeViewer: React.FC = () => {
         return () => { window.removeEventListener('resize', handleResize); resizeObserver.disconnect(); };
     }, [isNarrowLayout]);
 
-    const handleUserPovChange = (newPovFromEvent: PointOfView, globeIdentifier: 'main' | 'secondary') => {
-        if (programmaticMoveInProgressRef.current) return;
-        if (newPovFromEvent.lat == null || newPovFromEvent.lng == null || newPovFromEvent.altitude == null) return;
-
-        const newPov = newPovFromEvent as LocationCoordinates;
-        if (globeIdentifier === 'main') latestPovs.current.primary = newPov;
-        else latestPovs.current.secondary = newPov;
-
-        expectAnimatedMoveRef.current = false;
-        activeInteractionGlobeRef.current = globeIdentifier;
-
-        if (secondaryGlobeMode === 'dual-point') {
-            if (isDualModeLocked) {
-                if (globeIdentifier === 'main') secondaryGlobeEl.current?.pointOfView({ lat: newPov.lat + povOffset.current.lat, lng: newPov.lng + povOffset.current.lng, altitude: newPov.altitude }, 0);
-                else globeEl.current?.pointOfView({ lat: newPov.lat - povOffset.current.lat, lng: newPov.lng - povOffset.current.lng, altitude: newPov.altitude }, 0);
-            } else { // Unlocked, but sync zoom live
-                if (globeIdentifier === 'main') secondaryGlobeEl.current?.pointOfView({ ...latestPovs.current.secondary, altitude: newPov.altitude }, 0);
-                else globeEl.current?.pointOfView({ ...latestPovs.current.primary, altitude: newPov.altitude }, 0);
-            }
-        } else {
-            if (globeIdentifier === 'main') secondaryGlobeEl.current?.pointOfView(secondaryGlobeMode === 'prehistoric_same_point' ? newPov : getAntipodal(newPov), 0);
-            else globeEl.current?.pointOfView(secondaryGlobeMode === 'prehistoric_same_point' ? newPov : getAntipodal(newPov), 0);
-        }
-
-        if (syncThrottle.current) clearTimeout(syncThrottle.current);
-        syncThrottle.current = setTimeout(() => {
-            const lastMoved = activeInteractionGlobeRef.current;
-            
-            if (secondaryGlobeMode === 'dual-point') {
-                if (isDualModeLocked) {
-                    if (lastMoved === 'main') {
-                        const finalPrimary = latestPovs.current.primary as LocationCoordinates;
-                        setPointOfView(finalPrimary);
-                        setSecondaryPointOfView({ lat: finalPrimary.lat + povOffset.current.lat, lng: finalPrimary.lng + povOffset.current.lng, altitude: finalPrimary.altitude });
-                    } else {
-                        const finalSecondary = latestPovs.current.secondary as LocationCoordinates;
-                        setSecondaryPointOfView(finalSecondary);
-                        setPointOfView({ lat: finalSecondary.lat - povOffset.current.lat, lng: finalSecondary.lng - povOffset.current.lng, altitude: finalSecondary.altitude });
-                    }
-                } else { // Unlocked
-                    const finalPrimary = { ...latestPovs.current.primary as LocationCoordinates };
-                    const finalSecondary = { ...latestPovs.current.secondary as LocationCoordinates };
-                    if (lastMoved === 'main') finalSecondary.altitude = finalPrimary.altitude;
-                    else finalPrimary.altitude = finalSecondary.altitude;
-                    setPointOfView(finalPrimary);
-                    setSecondaryPointOfView(finalSecondary);
-                }
-            } else {
-                if (lastMoved === 'main') {
-                   setPointOfView(latestPovs.current.primary);
-                } else {
-                   const pov = latestPovs.current.secondary as LocationCoordinates;
-                   setPointOfView(secondaryGlobeMode === 'prehistoric_same_point' ? pov : getAntipodal(pov));
-                }
-            }
-            syncThrottle.current = null;
-        }, 100);
-    };
-
     const resetToUserLocation = async () => {
         setIsLoading(true);
         try {
@@ -275,6 +390,14 @@ const GlobeViewer: React.FC = () => {
     const handleSecondaryGlobeOptionChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const value = event.target.value;
         let newPath = (value === 'antipodal' || value === 'dual-point') ? `/${value}` : `/${prehistoricMapOptions.find(m => m.url === value)?.slug || 'antipodal'}`;
+        
+        // add map tiles parameter if enabled
+        if (showMapTiles) {
+            const currentSearchParams = new URLSearchParams(searchParams);
+            currentSearchParams.set('map', 't');
+            newPath += `?${currentSearchParams.toString()}`;
+        }
+
         if (window.location.pathname.toLowerCase() !== newPath.toLowerCase()) {
             activeInteractionGlobeRef.current = null;
             expectAnimatedMoveRef.current = true;
@@ -322,7 +445,8 @@ const GlobeViewer: React.FC = () => {
             displaySecondaryLng = pointOfView.lng;
         }
     }
-    
+
+
     const getSecondaryClassNames = (base: 'hover' | 'icon' | 'link') => {
         switch (secondaryGlobeMode) {
             case 'antipodal': return base === 'hover' ? 'group-hover:border-emerald-500/70 group-hover:shadow-emerald-500/10' : base === 'icon' ? 'text-emerald-400' : 'hover:text-emerald-400';
@@ -331,7 +455,7 @@ const GlobeViewer: React.FC = () => {
             default: return '';
         }
     };
-    
+
     const secondaryBoxName = secondaryGlobeMode === 'antipodal' ? 'Antipodal Point' : secondaryGlobeMode === 'prehistoric_same_point' ? selectedPrehistoricMap?.name.split('(')[0].trim() || 'Historic Point' : 'Secondary Point';
 
     return (
@@ -356,7 +480,7 @@ const GlobeViewer: React.FC = () => {
                                     <div className="group"><div className="flex items-center justify-between mb-1 sm:mb-2"><div className="flex items-center gap-2"><MapPin size={12} className="text-blue-400" /><span className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Primary View</span></div>{pointOfView.lat != null && pointOfView.lng != null && (<a href={`https://www.google.com/maps/@${pointOfView.lat},${pointOfView.lng},5z`} target="_blank" rel="noopener noreferrer" title="Open in Google Maps" className="text-neutral-500 hover:text-blue-400 transition-colors" onClick={(e) => e.stopPropagation()}><ExternalLink size={13} strokeWidth={2.25} /></a>)}</div><div className="bg-neutral-800/50 backdrop-blur-md rounded-lg sm:rounded-xl p-2.5 sm:p-3 border border-neutral-700/80 transition-all duration-300 group-hover:border-blue-500/70 group-hover:shadow-xl group-hover:shadow-blue-500/10"><div className="font-mono text-xs sm:text-sm text-neutral-100 tabular-nums">{pointOfView.lat?.toFixed(3) ?? '---.-'}°, {pointOfView.lng?.toFixed(3) ?? '---.-'}°</div></div></div>
                                 </div>
                                 <div className="flex-1 w-full lg:flex-none flex flex-col justify-center space-y-2 lg:space-y-2.5 lg:justify-start">
-                                    {secondaryGlobeMode === 'dual-point' && (<button onClick={() => setIsDualModeLocked(p => !p)} className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-yellow-600/20 hover:bg-yellow-600/40 backdrop-blur-sm rounded-md sm:rounded-lg text-xs sm:text-sm font-medium text-yellow-200 hover:text-yellow-100 transition-all duration-300 border border-yellow-500/40 hover:border-yellow-500/60">{isDualModeLocked ? <Lock size={13} /> : <Unlock size={13} />} {isDualModeLocked ? 'Unlock Globes' : 'Lock Globes'}</button>)}
+                                    {secondaryGlobeMode === 'dual-point' && (<button onClick={() => handleDualModeLockToggle()} className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-yellow-600/20 hover:bg-yellow-600/40 backdrop-blur-sm rounded-md sm:rounded-lg text-xs sm:text-sm font-medium text-yellow-200 hover:text-yellow-100 transition-all duration-300 border border-yellow-500/40 hover:border-yellow-500/60">{isDualModeLocked ? <Lock size={13} /> : <Unlock size={13} />} {isDualModeLocked ? 'Unlock Globes' : 'Lock Globes'}</button>)}
                                     <button onClick={resetToUserLocation} disabled={isLoading} className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-blue-600/80 hover:bg-blue-500/90 backdrop-blur-sm rounded-md sm:rounded-lg text-xs sm:text-sm font-medium text-blue-100 hover:text-white transition-all duration-300 border border-blue-500/50 hover:border-blue-400/70 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-blue-500/40"><Navigation size={13} className={isLoading ? 'animate-spin' : ''} /> {'My Location'}</button>
                                     <button onClick={() => setShowInfoModal(true)} className="w-full flex items-center justify-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 sm:py-2 bg-neutral-700/40 hover:bg-neutral-700/60 backdrop-blur-sm rounded-md sm:rounded-lg text-xs sm:text-sm font-medium text-neutral-300 hover:text-neutral-100 transition-all duration-300 border border-neutral-600/70 hover:border-neutral-500/90"><Settings size={13} /> Display Options</button>
                                 </div>
