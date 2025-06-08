@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import Globe from 'react-globe.gl';
 import type { GlobeMethods } from 'react-globe.gl';
 import type { PointOfView } from '../types';
@@ -35,11 +35,19 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
   const isEligibleForMapTiles = globeImageUrl.toLowerCase().includes('earth');
   const shouldShowTiles = showMapTiles && isEligibleForMapTiles;
 
+  // 1. Determine if the globe should animate based on the URL parameter.
+  //    useMemo ensures this logic runs only once when the component mounts.
+  const shouldAnimateIn = useMemo(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const skipAnimation = urlParams.get('map') === 't';
+    return !skipAnimation; // Animate only if 'map=t' is NOT present
+  }, []);
 
   useEffect(() => {
     if (globeRef.current) {
       const globe = globeRef.current;
       const controls = (globe as any).controls();
+      
       if (controls) {
         controls.rotateSpeed = 1;
         controls.enableDamping = true;
@@ -59,8 +67,8 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
   return (
     <div className="flex-1 relative overflow-hidden border-b lg:border-b-0 lg:border-r border-neutral-800">
       <div className="absolute top-0 left-0 right-0 z-10 p-4 lg:p-6 flex justify-between items-center pointer-events-none">
-        <div className="flex items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-sm pr-3 pl-2 py-1 rounded-full">
-          <div className={`w-2 h-2 ${labelColorIndicatorClass} rounded-full animate-pulsex`} />
+        <div className="flex items-center gap-2 pointer-events-auto bg-black/40 backdrop-blur-sm pr-3 pl-2 py-1 rounded-lg">
+          <div className={`w-2 h-2 ${labelColorIndicatorClass} rounded-full`} />
           <h2 className="text-xs font-semibold text-neutral-300 uppercase tracking-wider">
             {labelText}
           </h2>
@@ -91,6 +99,7 @@ const GlobePanel: React.FC<GlobePanelProps> = ({
               height={dimensions.height}
               rendererConfig={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
               globeTileEngineUrl={shouldShowTiles ? (x, y, z) => `https://tile.openstreetmap.org/${z}/${x}/${y}.png` : undefined}
+              animateIn={shouldAnimateIn}
             />
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className={`w-3 h-3 rounded-full shadow-lg shadow-red-500/50 ${labelColorIndicatorClass}`} />

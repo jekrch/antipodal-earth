@@ -162,36 +162,42 @@ const GlobeViewer: React.FC = () => {
 
     const handleUserPovChange = (newPovFromEvent: PointOfView, globeIdentifier: 'main' | 'secondary') => {
         if (programmaticMoveInProgressRef.current) return;
-        if (newPovFromEvent.lat == null || newPovFromEvent.lng == null || newPovFromEvent.altitude == null) return;
+    if (newPovFromEvent.lat == null || newPovFromEvent.lng == null || newPovFromEvent.altitude == null) return;
 
-        const newPov = newPovFromEvent as LocationCoordinates;
-        if (globeIdentifier === 'main') latestPovs.current.primary = newPov;
-        else latestPovs.current.secondary = newPov;
+    const newPov = newPovFromEvent as LocationCoordinates;
+    if (globeIdentifier === 'main') {
+        latestPovs.current.primary = newPov;
+    } else {
+        latestPovs.current.secondary = newPov;
+    }
 
-        expectAnimatedMoveRef.current = false;
-        activeInteractionGlobeRef.current = globeIdentifier;
+    expectAnimatedMoveRef.current = false;
+    activeInteractionGlobeRef.current = globeIdentifier;
 
-        if (secondaryGlobeMode === 'dual-point') {
-            if (isDualModeLocked) {
-                if (globeIdentifier === 'main') {
-                    const targetPos = normalizeCoordinates(newPov.lat + povOffset.current.lat, newPov.lng + povOffset.current.lng);
-                    secondaryGlobeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
-                } else {
-                    const targetPos = normalizeCoordinates(newPov.lat - povOffset.current.lat, newPov.lng - povOffset.current.lng);
-                    globeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
-                }
+    // This logic is now guaranteed to see the current state values
+    if (secondaryGlobeMode === 'dual-point') {
+        if (isDualModeLocked) {
+            if (globeIdentifier === 'main') {
+                const targetPos = normalizeCoordinates(newPov.lat + povOffset.current.lat, newPov.lng + povOffset.current.lng);
+                secondaryGlobeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
             } else {
-                if (globeIdentifier === 'main') {
-                    secondaryGlobeEl.current?.pointOfView({ ...latestPovs.current.secondary, altitude: newPov.altitude }, 0);
-                } else {
-                    globeEl.current?.pointOfView({ ...latestPovs.current.primary, altitude: newPov.altitude }, 0);
-                }
+                const targetPos = normalizeCoordinates(newPov.lat - povOffset.current.lat, newPov.lng - povOffset.current.lng);
+                globeEl.current?.pointOfView({ ...targetPos, altitude: newPov.altitude }, 0);
             }
         } else {
-            const targetPov = secondaryGlobeMode === 'prehistoric_same_point' ? newPov : getAntipodal(newPov);
-            const otherGlobe = globeIdentifier === 'main' ? secondaryGlobeEl : globeEl;
-            otherGlobe.current?.pointOfView(targetPov, 0);
+            if (globeIdentifier === 'main') {
+                secondaryGlobeEl.current?.pointOfView({ ...latestPovs.current.secondary, altitude: newPov.altitude }, 0);
+            } else {
+                globeEl.current?.pointOfView({ ...latestPovs.current.primary, altitude: newPov.altitude }, 0);
+            }
         }
+    } else {
+        const targetPov = secondaryGlobeMode === 'prehistoric_same_point' ? newPov : getAntipodal(newPov);
+        const otherGlobe = globeIdentifier === 'main' ? secondaryGlobeEl : globeEl;
+        otherGlobe.current?.pointOfView(targetPov, 0);
+    }
+
+    if (syncThrottle.current) clearTimeout(syncThrottle.current);
 
         if (syncThrottle.current) clearTimeout(syncThrottle.current);
         syncThrottle.current = setTimeout(() => {
@@ -247,70 +253,93 @@ const GlobeViewer: React.FC = () => {
 
     //  This effect now handles both initial load from URL and default   **
     useEffect(() => {
-        // MODIFIED: This check now includes the urlCoordsApplied.current flag to break the loop
-        if (!globeReady || !secondaryGlobeReady || initialAnimationDone.current || urlCoordsApplied.current) {
-            console.warn("break");
-            return
-        };
+    // This gatekeeper check is still crucial to prevent the infinite loop
+        if (!globeReady || !secondaryGlobeReady || initialAnimationDone.current || urlCoordsApplied.current) return;
 
-        programmaticMoveInProgressRef.current = true;
+    // This is the correct approach: derive the mode directly from the props/URL
+    // inside the effect, avoiding a dependency on potentially stale state.
+    const slug = mapSlugFromParams?.toLowerCase() || 'antipodal';
 
-        const lat = parseFloat(searchParams.get('lat') || '');
-        const lng = parseFloat(searchParams.get('lng') || '');
-        const alt = parseFloat(searchParams.get('alt') || '');
+    programmaticMoveInProgressRef.current = true;
+    
+    const lat = parseFloat(searchParams.get('lat') || '');
+    const lng = parseFloat(searchParams.get('lng') || '');
+    const alt = parseFloat(searchParams.get('alt') || '');
 
-        let initialPrimaryPov: LocationCoordinates | null = null;
-        let initialSecondaryPov: LocationCoordinates | null = null;
+    let initialPrimaryPov: LocationCoordinates | null = null;
+    let initialSecondaryPov: LocationCoordinates | null = null;
+    
+    if (!isNaN(lat) && !isNaN(lng) && !isNaN(alt)) {
+        urlCoordsApplied.current = true;
+        initialPrimaryPov = { lat, lng, altitude: alt };
 
-        if (!isNaN(lat) && !isNaN(lng) && !isNaN(alt)) {
-            // THIS FLAG IS NOW THE GATEKEEPER
-            urlCoordsApplied.current = true;
-            initialPrimaryPov = { lat, lng, altitude: alt };
-
-            if (secondaryGlobeMode === 'dual-point') {
-                const lat2 = parseFloat(searchParams.get('lat2') || '');
-                const lng2 = parseFloat(searchParams.get('lng2') || '');
-                const alt2 = parseFloat(searchParams.get('alt2') || '');
-                if (!isNaN(lat2) && !isNaN(lng2) && !isNaN(alt2)) {
-                    initialSecondaryPov = { lat: lat2, lng: lng2, altitude: alt2 };
-                } else {
-                    initialSecondaryPov = { ...initialPrimaryPov };
-                }
-            } else {
-                const baseSecondary = secondaryGlobeMode === 'prehistoric_same_point' ? initialPrimaryPov : getAntipodal(initialPrimaryPov);
-                initialSecondaryPov = { ...baseSecondary, altitude: alt };
+        // This check now reliably uses the correct mode for this render
+        if (slug === 'dual-point') {
+            const lat2 = parseFloat(searchParams.get('lat2') || '');
+            const lng2 = parseFloat(searchParams.get('lng2') || '');
+            const alt2 = parseFloat(searchParams.get('alt2') || '');
+            if (!isNaN(lat2) && !isNaN(lng2) && !isNaN(alt2)) {
+                initialSecondaryPov = { lat: lat2, lng: lng2, altitude: alt2 };
+            } else { 
+                initialSecondaryPov = { ...initialPrimaryPov };
             }
+        } else { 
+            const isPrehistoric = prehistoricMapOptions.some(m => m.slug === slug);
+            const baseSecondary = isPrehistoric ? initialPrimaryPov : getAntipodal(initialPrimaryPov);
+            initialSecondaryPov = { ...baseSecondary, altitude: alt };
         }
+    }
+    
+    if (slug === 'dual-point' && initialPrimaryPov && initialSecondaryPov) {
+        povOffset.current = {
+            lat: initialSecondaryPov.lat - initialPrimaryPov.lat,
+            lng: initialSecondaryPov.lng - initialPrimaryPov.lng,
+        };
+    }
+    
+    // This block handles the case where there are no valid coordinates in the URL
+    if (!initialPrimaryPov || !initialSecondaryPov) {
+        const initialAltitude = isNarrowLayout ? NARROW_LAYOUT_ALTITUDE_TARGET : WIDE_LAYOUT_ALTITUDE_TARGET;
+        initialPrimaryPov = { ...KANSAS_LOCATION, altitude: initialAltitude };
+        
+        const isPrehistoric = prehistoricMapOptions.some(m => m.slug === slug);
+        const baseSecondary = (slug === 'dual-point' || isPrehistoric) 
+            ? KANSAS_LOCATION 
+            : getAntipodal(KANSAS_LOCATION);
+            
+        initialSecondaryPov = { ...baseSecondary, altitude: initialAltitude };
 
-        if (!initialPrimaryPov || !initialSecondaryPov) {
-            const initialAltitude = isNarrowLayout ? NARROW_LAYOUT_ALTITUDE_TARGET : WIDE_LAYOUT_ALTITUDE_TARGET;
-            initialPrimaryPov = { ...KANSAS_LOCATION, altitude: initialAltitude };
-            const baseSecondary = secondaryGlobeMode === 'prehistoric_same_point' ? KANSAS_LOCATION : getAntipodal(KANSAS_LOCATION);
-            initialSecondaryPov = { ...baseSecondary, altitude: initialAltitude };
-
-            setTimeout(() => {
-                if (ipLookupAttempted.current || urlCoordsApplied.current) return;
-                ipLookupAttempted.current = true;
-                setIsLoading(true);
-                fetch('https://ipapi.co/json/').then(res => res.json()).then(data => {
-                    if (data.latitude && data.longitude) {
+        // IP lookup logic 
+        setTimeout(() => {
+            if (ipLookupAttempted.current || urlCoordsApplied.current) return;
+            ipLookupAttempted.current = true;
+            setIsLoading(true);
+            fetch('https://ipapi.co/json/').then(res => res.json()).then(data => {
+                if (data.latitude && data.longitude) {
+                    
+                    // === THE MODIFICATION IS HERE ===
+                    // Only set the animation flag if map tiles are NOT showing.
+                    if (!showMapTiles) {
                         expectAnimatedMoveRef.current = true;
-                        setPointOfView(prev => ({ lat: data.latitude, lng: data.longitude, altitude: prev.altitude }));
                     }
-                }).catch(e => console.warn('IP-based geolocation failed.', e)).finally(() => setIsLoading(false));
-            }, 1500);
-        }
 
-        globeEl.current?.pointOfView(initialPrimaryPov, 0);
-        secondaryGlobeEl.current?.pointOfView(initialSecondaryPov, 0);
-        setPointOfView(initialPrimaryPov);
-        setSecondaryPointOfView(initialSecondaryPov);
-        latestPovs.current = { primary: initialPrimaryPov, secondary: initialSecondaryPov };
+                    setPointOfView(prev => ({ lat: data.latitude, lng: data.longitude, altitude: prev.altitude }));
+                }
+            }).catch(e => console.warn('IP-based geolocation failed.', e)).finally(() => setIsLoading(false));
+        }, 1500);
+    }
 
-        initialAnimationDone.current = true;
-        setTimeout(() => { programmaticMoveInProgressRef.current = false; }, 100);
+    // This part remains the same
+    globeEl.current?.pointOfView(initialPrimaryPov, 0);
+    secondaryGlobeEl.current?.pointOfView(initialSecondaryPov, 0);
+    setPointOfView(initialPrimaryPov);
+    setSecondaryPointOfView(initialSecondaryPov);
+    latestPovs.current = { primary: initialPrimaryPov, secondary: initialSecondaryPov };
 
-    }, [globeReady, secondaryGlobeReady, secondaryGlobeMode, isNarrowLayout, searchParams]); // searchParams remains a dependency, but the gatekeeper prevents the loop
+    initialAnimationDone.current = true;
+    setTimeout(() => { programmaticMoveInProgressRef.current = false; }, 100);
+
+}, [globeReady, secondaryGlobeReady, isNarrowLayout, searchParams, mapSlugFromParams]);
 
     useEffect(() => {
         if (secondaryGlobeMode === 'dual-point' || !initialAnimationDone.current || activeInteractionGlobeRef.current !== null || programmaticMoveInProgressRef.current) return;
