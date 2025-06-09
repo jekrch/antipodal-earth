@@ -3,22 +3,108 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JuxtaGlobe</title>
-  <script defer src="https://analytics.jacobkrch.com/script.js" data-website-id="d804461d-6a77-45d9-8770-21cc88013a22"></script>
+  
+  <!-- Primary Meta Tags -->
+  <title>JuxtaGlobe - Interactive Dual Globe Visualization | Explore Earth's Antipodal Points & Prehistoric Maps</title>
+  <meta name="title" content="JuxtaGlobe - Interactive Dual Globe Visualization | Explore Earth's Antipodal Points & Prehistoric Maps">
+  <meta name="description" content="Explore Earth from multiple perspectives with JuxtaGlobe's interactive dual-globe visualization. Compare modern Earth with antipodal points, prehistoric continental configurations, or set custom dual points. Features Pangea, Jurassic, and Cretaceous period maps.">
+  <meta name="keywords" content="antipodal points, globe visualization, Earth explorer, prehistoric Earth, Pangea map, continental drift, dual globe, interactive map, 3D Earth, geological time, opposite side of Earth, antipode calculator">
+  <meta name="author" content="JuxtaGlobe">
+  <meta name="robots" content="index, follow">
+  <link rel="canonical" href="https://www.juxtaglobe.com/" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://www.juxtaglobe.com/">
+  <meta property="og:title" content="JuxtaGlobe - Interactive Dual Globe Visualization">
+  <meta property="og:description" content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
+  <meta property="og:image" content="https://www.juxtaglobe.com/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:site_name" content="JuxtaGlobe">
+  <meta property="og:locale" content="en_US">
+  
+  <!-- Twitter -->
+  <meta property="twitter:card" content="summary_large_image">
+  <meta property="twitter:url" content="https://www.juxtaglobe.com/">
+  <meta property="twitter:title" content="JuxtaGlobe - Interactive Dual Globe Visualization">
+  <meta property="twitter:description" content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
+  <meta property="twitter:image" content="https://www.juxtaglobe.com/twitter-image.png">
+  
+  <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/globe.svg" />
+  
+  <!-- Theme Color -->
+  <meta name="theme-color" content="#0a0a0a">
+  <meta name="msapplication-TileColor" content="#0a0a0a">
+  
+  <!-- Additional SEO -->
+  <meta name="geo.placename" content="World">
+  <meta name="geo.region" content="World">
+  <meta name="application-name" content="JuxtaGlobe">
+  <meta name="apple-mobile-web-app-title" content="JuxtaGlobe">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "JuxtaGlobe",
+    "description": "Interactive dual-globe visualization tool for exploring Earth from multiple perspectives. Compare antipodal points, prehistoric maps, and custom locations.",
+    "url": "https://www.juxtaglobe.com",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    },
+    "featureList": [
+      "Antipodal point calculator",
+      "Prehistoric Earth maps",
+      "Dual-point comparison mode",
+      "IP-based geolocation",
+      "3D globe visualization",
+      "Continental drift visualization"
+    ],
+    "author": {
+      "@type": "Organization",
+      "name": "JuxtaGlobe"
+    }
+  }
+  </script>
+  
+  <!-- Analytics -->
+  <script defer src="https://analytics.jacobkrch.com/script.js" data-website-id="d804461d-6a77-45d9-8770-21cc88013a22"></script>
+  
+  <!-- Preconnect to external resources -->
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://ipapi.co">
+  <link rel="dns-prefetch" href="https://unpkg.com">
+  <link rel="dns-prefetch" href="https://ipapi.co">
+  
+  <!-- SPA Redirect Script -->
   <script>
     (function () {
       var redirect = sessionStorage.redirect;
       delete sessionStorage.redirect;
-      // Compare with the path parts, not the full href
       var currentPath = location.pathname + location.search + location.hash;
-      if (redirect && redirect !== currentPath && redirect !== '/') { // Avoid redirecting if already on target or if target is just '/' after refresh
+      if (redirect && redirect !== currentPath && redirect !== '/') {
         history.replaceState(null, null, redirect);
       }
     })();
   </script>
 </head>
 <body>
+  <noscript>
+    <div style="padding: 20px; text-align: center; font-family: sans-serif;">
+      <h1>JuxtaGlobe - Interactive Dual Globe Visualization</h1>
+      <p>JuxtaGlobe requires JavaScript to provide an interactive 3D globe experience.</p>
+      <p>Please enable JavaScript to explore Earth's antipodal points, prehistoric continental configurations, and more.</p>
+    </div>
+  </noscript>
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script> 
 </body>
