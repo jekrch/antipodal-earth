@@ -82,74 +82,180 @@
   }
   </script>
 
+  <!-- Replace your entire Umami script section with this -->
   <script>
-    // Configure Umami before loading the script
-    window.umami = window.umami || {};
-    window.umami.autoTrack = false; // Disable automatic tracking
+    // CRITICAL: Block Umami from loading immediately
+    (function () {
+      // Store the original script createElement method
+      const originalCreateElement = document.createElement;
 
-    // Custom tracking function that strips coordinate parameters
-    function trackPageView() {
-      if (!window.umami || !window.umami.track) return;
+      // Override createElement to intercept Umami script
+      document.createElement = function (tagName) {
+        const element = originalCreateElement.call(document, tagName);
 
-      // Get current URL
-      const url = new URL(window.location.href);
+        // If it's a script tag, override its src setter
+        if (tagName.toLowerCase() === 'script') {
+          let scriptSrc = '';
+          Object.defineProperty(element, 'src', {
+            get: function () {
+              return scriptSrc;
+            },
+            set: function (value) {
+              // Check if this is the Umami script
+              if (value && value.includes('analytics.jacobkrch.com/script.js')) {
+                // Store the src but don't set it yet
+                scriptSrc = value;
 
-      // Remove coordinate parameters
-      const paramsToRemove = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
-      paramsToRemove.forEach(param => url.searchParams.delete(param));
+                // Instead, load our custom version
+                loadCustomUmami(value);
 
-      // Track the cleaned URL
-      window.umami.track('pageview', {
-        url: url.pathname + url.search + url.hash,
-        referrer: document.referrer
-      });
-    }
+                // Don't actually set the src (prevents loading)
+                return;
+              }
+              // For other scripts, set normally
+              scriptSrc = value;
+              element.setAttribute('src', value);
+            }
+          });
+        }
 
-    // Track initial page load
-    document.addEventListener('DOMContentLoaded', trackPageView);
+        return element;
+      };
 
-    // Handle navigation for SPA
-    let lastTrackedPath = null;
+      // Function to load Umami with our custom configuration
+      function loadCustomUmami(originalSrc) {
+        // First, set up our tracking interceptor
+        window.umami = {
+          track: function (event, data) {
+            // Intercept all tracking calls
+            if (event === 'pageview' || !event) {
+              // For pageview events, clean the URL
+              const cleanedData = cleanTrackingData(data);
+              if (shouldTrack(cleanedData)) {
+                // Call the real tracking function
+                sendToUmami('pageview', cleanedData);
+              }
+            } else {
+              // For other events, pass through
+              sendToUmami(event, data);
+            }
+          }
+        };
 
-    // Override pushState and replaceState
-    const originalPushState = history.pushState;
-    const originalReplaceState = history.replaceState;
+        // Now load the real Umami script
+        const script = originalCreateElement.call(document, 'script');
+        script.defer = true;
+        script.setAttribute('data-website-id', 'd804461d-6a77-45d9-8770-21cc88013a22');
 
-    history.pushState = function () {
-      originalPushState.apply(history, arguments);
-      handleNavigation();
-    };
+        // When script loads, store the real track function
+        script.onload = function () {
+          if (window.umami && window.umami.track) {
+            window._umamiRealTrack = window.umami.track;
+            window.umami.track = window.umami.track; // Keep our override
+          }
+        };
 
-    history.replaceState = function () {
-      originalReplaceState.apply(history, arguments);
-      handleNavigation();
-    };
+        // Set the actual src to load Umami
+        script.src = originalSrc;
+        document.head.appendChild(script);
+      }
 
-    window.addEventListener('popstate', handleNavigation);
+      // Tracking data cleaner
+      function cleanTrackingData(data) {
+        if (!data) {
+          // If no data provided, create from current location
+          data = {
+            url: window.location.pathname + window.location.search + window.location.hash,
+            referrer: document.referrer
+          };
+        }
 
-    function handleNavigation() {
-      const url = new URL(window.location.href);
-      const paramsToIgnore = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
+        // Clean URL
+        if (data.url) {
+          const url = new URL(data.url, window.location.origin);
+          const coordParams = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
+          coordParams.forEach(param => url.searchParams.delete(param));
+          data.url = url.pathname + url.search + url.hash;
+        }
 
-      // Create a copy of search params without coordinate parameters
-      const cleanParams = new URLSearchParams();
-      for (const [key, value] of url.searchParams) {
-        if (!paramsToIgnore.includes(key)) {
-          cleanParams.append(key, value);
+        // Clean referrer
+        if (data.referrer) {
+          try {
+            const refUrl = new URL(data.referrer);
+            const coordParams = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
+            coordParams.forEach(param => refUrl.searchParams.delete(param));
+            data.referrer = refUrl.pathname + refUrl.search + refUrl.hash;
+          } catch (e) {
+            // Invalid referrer URL, leave as is
+          }
+        }
+
+        return data;
+      }
+
+      // Track state to prevent duplicates
+      let lastTrackedUrl = null;
+
+      function shouldTrack(data) {
+        const currentUrl = data.url || '/';
+        if (currentUrl === lastTrackedUrl) {
+          return false;
+        }
+        lastTrackedUrl = currentUrl;
+        return true;
+      }
+
+      // Send to real Umami
+      function sendToUmami(event, data) {
+        if (window._umamiRealTrack) {
+          window._umamiRealTrack.call(window.umami, event, data);
+        } else {
+          // Queue for later if Umami hasn't loaded yet
+          window._umamiQueue = window._umamiQueue || [];
+          window._umamiQueue.push([event, data]);
+
+          // Process queue when ready
+          const checkQueue = setInterval(() => {
+            if (window._umamiRealTrack && window._umamiQueue) {
+              window._umamiQueue.forEach(([e, d]) => {
+                window._umamiRealTrack.call(window.umami, e, d);
+              });
+              window._umamiQueue = [];
+              clearInterval(checkQueue);
+            }
+          }, 100);
         }
       }
 
-      const cleanPath = url.pathname + (cleanParams.toString() ? '?' + cleanParams.toString() : '') + url.hash;
+      // Also intercept direct API calls
+      const originalFetch = window.fetch;
+      window.fetch = function (url, options) {
+        // Check if this is an Umami tracking call
+        if (url && url.includes('/api/send')) {
+          if (options && options.body) {
+            try {
+              const body = JSON.parse(options.body);
+              if (body.payload && body.payload.url) {
+                // Clean the payload
+                const cleaned = cleanTrackingData(body.payload);
+                if (!shouldTrack(cleaned)) {
+                  // Skip this tracking call
+                  return Promise.resolve(new Response('{}', { status: 200 }));
+                }
+                body.payload = cleaned;
+                options.body = JSON.stringify(body);
+              }
+            } catch (e) {
+              // Not JSON or error parsing, let it through
+            }
+          }
+        }
 
-      // Only track if the cleaned path is different
-      if (cleanPath !== lastTrackedPath) {
-        lastTrackedPath = cleanPath;
-        trackPageView();
-      }
-    }
+        return originalFetch.call(window, url, options);
+      };
+    })();
   </script>
 
-  <!-- Load Umami script after configuration -->
   <script defer src="https://analytics.jacobkrch.com/script.js"
     data-website-id="d804461d-6a77-45d9-8770-21cc88013a22"></script>
 
