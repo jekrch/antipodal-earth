@@ -1,43 +1,49 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
+
   <!-- Primary Meta Tags -->
   <title>JuxtaGlobe - Interactive Dual Globe Visualization | Explore Earth's Antipodal Points & Prehistoric Maps</title>
-  <meta name="title" content="JuxtaGlobe - Interactive Dual Globe Visualization | Explore Earth's Antipodal Points & Prehistoric Maps">
-  <meta name="description" content="Explore Earth from multiple perspectives with JuxtaGlobe's interactive dual-globe visualization. Compare modern Earth with antipodal points, prehistoric continental configurations, or set custom dual points. Features Pangea, Jurassic, and Cretaceous period maps.">
-  <meta name="keywords" content="antipodal points, globe visualization, Earth explorer, prehistoric Earth, Pangea map, continental drift, dual globe, interactive map, 3D Earth, geological time, opposite side of Earth, antipode calculator">
+  <meta name="title"
+    content="JuxtaGlobe - Interactive Dual Globe Visualization | Explore Earth's Antipodal Points & Prehistoric Maps">
+  <meta name="description"
+    content="Explore Earth from multiple perspectives with JuxtaGlobe's interactive dual-globe visualization. Compare modern Earth with antipodal points, prehistoric continental configurations, or set custom dual points. Features Pangea, Jurassic, and Cretaceous period maps.">
+  <meta name="keywords"
+    content="antipodal points, globe visualization, Earth explorer, prehistoric Earth, Pangea map, continental drift, dual globe, interactive map, 3D Earth, geological time, opposite side of Earth, antipode calculator">
   <meta name="author" content="JuxtaGlobe">
   <meta name="robots" content="index, follow">
   <link rel="canonical" href="https://www.juxtaglobe.com/" />
-  
+
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://www.juxtaglobe.com/">
   <meta property="og:title" content="JuxtaGlobe - Interactive Dual Globe Visualization">
-  <meta property="og:description" content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
+  <meta property="og:description"
+    content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
   <meta property="og:image" content="https://www.juxtaglobe.com/og-image.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:site_name" content="JuxtaGlobe">
   <meta property="og:locale" content="en_US">
-  
+
   <!-- Twitter -->
   <meta property="twitter:card" content="summary_large_image">
   <meta property="twitter:url" content="https://www.juxtaglobe.com/">
   <meta property="twitter:title" content="JuxtaGlobe - Interactive Dual Globe Visualization">
-  <meta property="twitter:description" content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
+  <meta property="twitter:description"
+    content="Explore Earth from multiple perspectives. Compare modern Earth with antipodal points or journey through prehistoric continental configurations.">
   <meta property="twitter:image" content="https://www.juxtaglobe.com/twitter-image.png">
-  
+
   <!-- Favicon -->
   <link rel="icon" type="image/svg+xml" href="/globe.svg" />
-  
+
   <!-- Theme Color -->
   <meta name="theme-color" content="#0a0a0a">
   <meta name="msapplication-TileColor" content="#0a0a0a">
-  
+
   <!-- Additional SEO -->
   <meta name="geo.placename" content="World">
   <meta name="geo.region" content="World">
@@ -45,7 +51,7 @@
   <meta name="apple-mobile-web-app-title" content="JuxtaGlobe">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  
+
   <!-- Structured Data -->
   <script type="application/ld+json">
   {
@@ -75,16 +81,190 @@
     }
   }
   </script>
-  
-  <!-- Analytics -->
-  <script defer src="https://analytics.jacobkrch.com/script.js" data-website-id="d804461d-6a77-45d9-8770-21cc88013a22"></script>
-  
+
+  <!-- Replace your entire Umami script section with this -->
+  <script>
+    // CRITICAL: Block Umami from loading immediately
+    (function () {
+      // Store the original script createElement method
+      const originalCreateElement = document.createElement;
+
+      // Override createElement to intercept Umami script
+      document.createElement = function (tagName) {
+        const element = originalCreateElement.call(document, tagName);
+
+        // If it's a script tag, override its src setter
+        if (tagName.toLowerCase() === 'script') {
+          let scriptSrc = '';
+          Object.defineProperty(element, 'src', {
+            get: function () {
+              return scriptSrc;
+            },
+            set: function (value) {
+              // Check if this is the Umami script
+              if (value && value.includes('analytics.jacobkrch.com/script.js')) {
+                // Store the src but don't set it yet
+                scriptSrc = value;
+
+                // Instead, load our custom version
+                loadCustomUmami(value);
+
+                // Don't actually set the src (prevents loading)
+                return;
+              }
+              // For other scripts, set normally
+              scriptSrc = value;
+              element.setAttribute('src', value);
+            }
+          });
+        }
+
+        return element;
+      };
+
+      // Function to load Umami with our custom configuration
+      function loadCustomUmami(originalSrc) {
+        // First, set up our tracking interceptor
+        window.umami = {
+          track: function (event, data) {
+            // Intercept all tracking calls
+            if (event === 'pageview' || !event) {
+              // For pageview events, clean the URL
+              const cleanedData = cleanTrackingData(data);
+              if (shouldTrack(cleanedData)) {
+                // Call the real tracking function
+                sendToUmami('pageview', cleanedData);
+              }
+            } else {
+              // For other events, pass through
+              sendToUmami(event, data);
+            }
+          }
+        };
+
+        // Now load the real Umami script
+        const script = originalCreateElement.call(document, 'script');
+        script.defer = true;
+        script.setAttribute('data-website-id', 'd804461d-6a77-45d9-8770-21cc88013a22');
+
+        // When script loads, store the real track function
+        script.onload = function () {
+          if (window.umami && window.umami.track) {
+            window._umamiRealTrack = window.umami.track;
+            window.umami.track = window.umami.track; // Keep our override
+          }
+        };
+
+        // Set the actual src to load Umami
+        script.src = originalSrc;
+        document.head.appendChild(script);
+      }
+
+      // Tracking data cleaner
+      function cleanTrackingData(data) {
+        if (!data) {
+          // If no data provided, create from current location
+          data = {
+            url: window.location.pathname + window.location.search + window.location.hash,
+            referrer: document.referrer
+          };
+        }
+
+        // Clean URL
+        if (data.url) {
+          const url = new URL(data.url, window.location.origin);
+          const coordParams = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
+          coordParams.forEach(param => url.searchParams.delete(param));
+          data.url = url.pathname + url.search + url.hash;
+        }
+
+        // Clean referrer
+        if (data.referrer) {
+          try {
+            const refUrl = new URL(data.referrer);
+            const coordParams = ['lat', 'lng', 'alt', 'lat2', 'lng2', 'alt2'];
+            coordParams.forEach(param => refUrl.searchParams.delete(param));
+            data.referrer = refUrl.pathname + refUrl.search + refUrl.hash;
+          } catch (e) {
+            // Invalid referrer URL, leave as is
+          }
+        }
+
+        return data;
+      }
+
+      // Track state to prevent duplicates
+      let lastTrackedUrl = null;
+
+      function shouldTrack(data) {
+        const currentUrl = data.url || '/';
+        if (currentUrl === lastTrackedUrl) {
+          return false;
+        }
+        lastTrackedUrl = currentUrl;
+        return true;
+      }
+
+      // Send to real Umami
+      function sendToUmami(event, data) {
+        if (window._umamiRealTrack) {
+          window._umamiRealTrack.call(window.umami, event, data);
+        } else {
+          // Queue for later if Umami hasn't loaded yet
+          window._umamiQueue = window._umamiQueue || [];
+          window._umamiQueue.push([event, data]);
+
+          // Process queue when ready
+          const checkQueue = setInterval(() => {
+            if (window._umamiRealTrack && window._umamiQueue) {
+              window._umamiQueue.forEach(([e, d]) => {
+                window._umamiRealTrack.call(window.umami, e, d);
+              });
+              window._umamiQueue = [];
+              clearInterval(checkQueue);
+            }
+          }, 100);
+        }
+      }
+
+      // Also intercept direct API calls
+      const originalFetch = window.fetch;
+      window.fetch = function (url, options) {
+        // Check if this is an Umami tracking call
+        if (url && url.includes('/api/send')) {
+          if (options && options.body) {
+            try {
+              const body = JSON.parse(options.body);
+              if (body.payload && body.payload.url) {
+                // Clean the payload
+                const cleaned = cleanTrackingData(body.payload);
+                if (!shouldTrack(cleaned)) {
+                  // Skip this tracking call
+                  return Promise.resolve(new Response('{}', { status: 200 }));
+                }
+                body.payload = cleaned;
+                options.body = JSON.stringify(body);
+              }
+            } catch (e) {
+              // Not JSON or error parsing, let it through
+            }
+          }
+        }
+
+        return originalFetch.call(window, url, options);
+      };
+    })();
+  </script>
+
+  <script defer src="https://analytics.jacobkrch.com/script.js"
+    data-website-id="d804461d-6a77-45d9-8770-21cc88013a22"></script>
+
   <!-- Preconnect to external resources -->
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://ipapi.co">
   <link rel="dns-prefetch" href="https://unpkg.com">
   <link rel="dns-prefetch" href="https://ipapi.co">
-  
+
   <!-- SPA Redirect Script -->
   <script>
     (function () {
@@ -97,15 +277,18 @@
     })();
   </script>
 </head>
+
 <body>
   <noscript>
     <div style="padding: 20px; text-align: center; font-family: sans-serif;">
       <h1>JuxtaGlobe - Interactive Dual Globe Visualization</h1>
       <p>JuxtaGlobe requires JavaScript to provide an interactive 3D globe experience.</p>
-      <p>Please enable JavaScript to explore Earth's antipodal points, prehistoric continental configurations, and more.</p>
+      <p>Please enable JavaScript to explore Earth's antipodal points, prehistoric continental configurations, and more.
+      </p>
     </div>
   </noscript>
   <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script> 
+  <script type="module" src="/src/main.tsx"></script>
 </body>
+
 </html>

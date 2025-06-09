@@ -110,14 +110,14 @@ const InfoModal: React.FC<InfoModalProps> = ({
           </label>
         </div>
 
-        <div className="mt-6 pt-4 border-t border-neutral-700/70 flex justify-between items-center text-xs">
+        <div className="mt-6 pt-4 border-t border-neutral-700/70 flex justify-between items-center text-xs -mb-2">
           <p className="text-neutral-500">
             © {currentYear}{' '}
             <a
               href="https://jacobkrch.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-blue-400 hover:text-neutral-200 transition-colors hover:underline"
+              className="text-blue-400 hover:text-neutral-200 transition-colors hover:underline ml-1"
             >
               Jacob Krch
             </a>
@@ -127,9 +127,9 @@ const InfoModal: React.FC<InfoModalProps> = ({
             target="_blank"
             rel="noopener noreferrer"
             aria-label="View source code on GitHub"
-            className="text-neutral-500 hover:text-neutral-200 transition-colors -mb-4 -mt-2"
+            className="text-neutral-500 hover:text-neutral-200 transition-colors -mb-4 -mt-4"
           >
-            <FaGithub size={28} />
+            <FaGithub size={24} />
           </a>
         </div>
       </div>
